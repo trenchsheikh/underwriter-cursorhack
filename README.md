@@ -1,23 +1,51 @@
 # underwriter-cursorhack
 
-Initial repository setup.
+Monorepo containing the underwriter application.
+
+## Structure
+
+```
+.
+├── backend/    # Python FastAPI backend service
+├── frontend/   # React + Vite + TypeScript frontend
+└── README.md
+```
 
 ## Getting Started
 
-1. Clone the repository:
-   ```bash
-   git clone <repo-url>
-   cd underwriter-cursorhack
-   ```
-2. Add your project files.
-3. Commit and push:
-   ```bash
-   git add .
-   git commit -m "Initial project setup"
-   git push
-   ```
+### Prerequisites
 
-## Notes
+- Python 3.11+
+- Node.js 20+
+- npm 10+
 
-- This README is a starter template.
-- Update this file with project-specific setup and usage details as development continues.
+### Backend
+
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+
+The API will be available at http://localhost:8000. Interactive docs at http://localhost:8000/docs.
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The dev server will be available at http://localhost:5173.
+
+## Development
+
+Each workspace is independent and managed with its own tooling:
+
+- **backend/** uses `pip` and `requirements.txt`.
+- **frontend/** uses `npm` and `package.json`.
+
+See each subdirectory's README for further details.
