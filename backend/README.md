@@ -51,7 +51,7 @@ backend/
 │       ├── opensanctions.ts
 │       ├── whois.ts
 │       ├── pdf-parse.ts
-│       └── llm.ts                   # OpenAI-compatible chat wrapper
+│       └── llm.ts                   # @cursor/sdk + OpenAI fallback chat wrapper
 ├── fixtures/
 │   ├── specter/…
 │   ├── companies-house/…
@@ -89,6 +89,33 @@ npm run dev
 The defaults run entirely against fixtures — no API keys required. Copy
 `.env.example` to `.env` if you want to plug in Specter / OpenAI / Companies
 House / OpenSanctions later.
+
+### LLM-backed narrative (Cursor TypeScript SDK)
+
+The two narrative call sites in the pipeline — the IC memo's editorial
+summary (`agents/memo.ts`) and the amendment rationale (`agents/amend.ts`) —
+go through `lib/sources/llm.ts`. That helper now prefers the
+[Cursor TypeScript SDK](https://cursor.com/blog/typescript-sdk)
+([docs](https://cursor.com/docs/sdk/typescript)) over a raw OpenAI call,
+because it gives the same agent runtime, harness, and model lineup that
+powers the Cursor IDE / CLI / Cloud Agents:
+
+```bash
+# In backend/.env
+CURSOR_API_KEY=<your key from https://cursor.com/dashboard/integrations>
+CURSOR_MODEL=composer-2     # optional; defaults to composer-2
+```
+
+Resolution order, first hit wins:
+
+1. **Cursor SDK** (`@cursor/sdk` `Agent.prompt()`, local runtime) when
+   `CURSOR_API_KEY` is set and `UNDERWRITER_DISABLE_CURSOR_SDK` is not
+   `true`.
+2. **OpenAI-compatible** (`/chat/completions`) when only `OPENAI_API_KEY`
+   is set.
+3. Deterministic template baked into the agents — used for the keyless
+   demo path. The LLM is never in the underwriting hot path; it only
+   decorates prose.
 
 ### Smoke test
 

@@ -100,11 +100,26 @@ curl -s -X POST http://localhost:3001/api/amend \
   domain (edit distance 2 from `acme.co`), domain age 6 days, DKIM fail, and
   beneficial-owner mismatch — driving a `hold` verdict.
 
+## Agent runtime
+
+LLM-backed narrative generation in the pipeline (the IC memo summary and the
+amendment rationale) is wired through the
+[Cursor TypeScript SDK](https://cursor.com/blog/typescript-sdk)
+([docs](https://cursor.com/docs/sdk/typescript)). When `CURSOR_API_KEY` is
+set, those call sites run a one-shot `@cursor/sdk` `Agent.prompt()` against
+the same agent runtime that powers the Cursor IDE, CLI, and Cloud Agents.
+Without a key, the backend silently falls back to OpenAI (if configured) and
+then to deterministic templates — the demo always works keyless.
+
+See [`backend/lib/sources/llm.ts`](./backend/lib/sources/llm.ts) for the
+wrapper.
+
 ## Configuration
 
-All external APIs (Specter, Companies House, OpenSanctions, WHOIS, OpenAI) are
-optional — the backend defaults to fixtures and runs cleanly with no keys set.
-See [`backend/.env.example`](./backend/.env.example) for the full list.
+All external APIs (Specter, Companies House, OpenSanctions, WHOIS, OpenAI,
+Cursor SDK) are optional — the backend defaults to fixtures and runs cleanly
+with no keys set. See [`backend/.env.example`](./backend/.env.example) for
+the full list.
 
 ## Build / typecheck
 
