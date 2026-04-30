@@ -3,39 +3,54 @@
 /**
  * App shell for the Mandate prototype.
  *
- * State (all lives here so a single screen can be swapped without prop-drill):
- *   - route        : which tab in the rail is active
- *   - theme        : dark | light, mirrored to <html data-theme="...">
- *   - amendments   : the PR/amendment log shown on the Mandate screen.
- *                    The Create-PR modal pushes new entries here.
- *   - toast        : transient bottom-center message
+ * Centralised state — all three screens read from / write to it:
+ *   - route       : which tab in the rail is active
+ *   - theme       : dark | light, mirrored to <html data-theme>
+ *   - amendments  : PR/amendment log; mutated by Mandate's Create-PR modal
+ *                   AND by the Run screen's "Override and amend" flow
+ *   - runState    : everything about the current diligence run; Memo reads
+ *                   it to decide PROCEED vs HOLD
+ *   - toast       : transient bottom-center message
  *
- * Mandate-only state lives inside MandateScreen (which diff is open, modal open?).
- *
- * To extend this app (Run, Memo) drop the matching component into the
- * route switch below — they receive whatever slice of state they need.
+ * Per-screen UI state (which diff is expanded, which modal is open) lives
+ * inside the screen component.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { LeftRail } from "./components/LeftRail";
 import { MandateScreen } from "./components/MandateScreen";
+import { RunScreen } from "./components/RunScreen";
+import { MemoScreen } from "./components/MemoScreen";
 import { Toast } from "./components/Toast";
 import { INITIAL_AMENDMENTS } from "./state/initial";
-import type { Amendment, Route, Theme } from "./state/types";
+import { INITIAL_RUN_STATE } from "./state/fixtures";
+import type { Amendment, Route, RunState, Theme } from "./state/types";
 
 export default function App() {
   const [route, setRoute] = useState<Route>("mandate");
   const [theme, setTheme] = useState<Theme>("dark");
   const [toast, setToast] = useState("");
   const [amendments, setAmendments] = useState<Amendment[]>(INITIAL_AMENDMENTS);
+  const [runState, setRunState] = useState<RunState>(INITIAL_RUN_STATE);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
 
-  // Mandate "version" is bumped each time a PR merges. The latest PR id
-  // anchors the displayed version (matches the design: PR #14 → v 12).
   const mandateVersion = amendments[0]?.id ? amendments[0].id - 2 : 12;
+  const nextAmendmentId =
+    Math.max(...amendments.map((a) => a.id), 0) + 1;
+
+  /**
+   * Push a fresh amendment onto the log. Used by both the Mandate "New PR"
+   * modal and the Run "Override and amend" flow, so it lives here.
+   */
+  const mergeAmendment = useCallback((a: Amendment) => {
+    setAmendments((prev) => [
+      { ...a, fresh: true },
+      ...prev.map((p) => ({ ...p, active: false, fresh: false })),
+    ]);
+  }, []);
 
   return (
     <div className="app" data-screen-label={`Mandate · ${route}`}>
@@ -61,29 +76,21 @@ export default function App() {
             setToast={setToast}
           />
         )}
-        {route === "run" && <ComingSoon label="Diligence Run" />}
-        {route === "memo" && <ComingSoon label="IC Memo" />}
+        {route === "run" && (
+          <RunScreen
+            runState={runState}
+            setRunState={setRunState}
+            go={setRoute}
+            setToast={setToast}
+            nextAmendmentId={nextAmendmentId}
+            onMergeAmendment={mergeAmendment}
+          />
+        )}
+        {route === "memo" && (
+          <MemoScreen runState={runState} go={setRoute} />
+        )}
       </main>
       <Toast message={toast} />
-    </div>
-  );
-}
-
-function ComingSoon({ label }: { label: string }) {
-  return (
-    <div
-      style={{
-        height: "100%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        color: "var(--ink-tertiary)",
-        fontFamily: "var(--font-display)",
-        fontStyle: "italic",
-        fontSize: 28,
-      }}
-    >
-      {label} — coming soon
     </div>
   );
 }
