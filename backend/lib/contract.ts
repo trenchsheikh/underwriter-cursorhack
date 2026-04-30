@@ -70,7 +70,7 @@ export interface RunRequestFile {
 export interface RunRequest {
   prompt: string;
   files: RunRequestFile[];
-  fixtureSeed?: "clean-acme" | "bec-acme";
+  fixtureSeed?: "clean-acme" | "bec-acme" | "dex-meetdex";
 }
 
 export interface RunInit {

@@ -4,6 +4,7 @@
  */
 
 import type { DeskId } from "./contract";
+import type { SpecterSnapshot } from "./sources/specter";
 
 // ----- Mandate (parsed from MANDATE.md frontmatter) ----------------
 
@@ -150,11 +151,19 @@ export interface RuleResult {
 import type { RunEvent } from "./contract";
 export type SendFn = (event: RunEvent) => void;
 
+export interface SpecterContext {
+  snapshot: SpecterSnapshot;
+  /** True when the snapshot came from a fixture (no live keys / offline). */
+  cached: boolean;
+  /** "live" when the snapshot was assembled from the Specter API; "fixture" otherwise. */
+  mode: "live" | "fixture";
+}
+
 export type DeskRunner = (
   deal: ParsedDeal,
   mandate: Mandate,
   send: SendFn,
-  ctx: { fundState: FundState; files: ParsedFiles },
+  ctx: { fundState: FundState; files: ParsedFiles; specter: SpecterContext },
 ) => Promise<import("./contract").DeskFinding>;
 
 export type { DeskId };

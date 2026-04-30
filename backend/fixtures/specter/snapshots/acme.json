@@ -1,0 +1,122 @@
+{
+  "fetched_at": "2026-04-30T19:00:00.000Z",
+  "company": {
+    "specter_id": "specter_co_acme_92",
+    "legal_name": "Acme Robotics Ltd",
+    "domain": "acme.co",
+    "hq_city": "Cambridge",
+    "hq_country": "United Kingdom",
+    "founded_year": 2021,
+    "employee_count": 47,
+    "growth_stage": "early_stage",
+    "operating_status": "active",
+    "tech_verticals": [
+      ["Robotics & Industrial Automation", "Industrial Robotics"],
+      ["Robotics & Industrial Automation", "Warehouse & Logistics Robotics"]
+    ],
+    "industries": ["Robotics", "Manufacturing", "Logistics"],
+    "tagline": "Industrial robotics for warehouse automation",
+    "description": "Acme Robotics builds general-purpose pick-and-place arms for European logistics operators.",
+    "funding": {
+      "total_usd": 19500000,
+      "last_type": "Series A",
+      "last_usd": 14000000,
+      "last_date": "2026-03-19",
+      "investors": ["Sequoia Capital", "Index Ventures", "LocalGlobe"],
+      "round_count": 3
+    },
+    "highlights": [
+      "top_tier_investors",
+      "recent_funding",
+      "headcount_6mo_momentum",
+      "social_followers_3mo_surge",
+      "media_spotlight"
+    ],
+    "new_highlights": [],
+    "traction": {
+      "web_visits_latest": 28100,
+      "headcount_6mo_change": 12,
+      "linkedin_followers_latest": 5400
+    }
+  },
+  "founders": [
+    {
+      "person_id": "per_acme_chen",
+      "full_name": "Sarah Chen",
+      "tagline": "CEO & Co-Founder, Acme Robotics — ex-Boston Dynamics",
+      "linkedin_url": "https://www.linkedin.com/in/sarahchen-acme/",
+      "location": "Cambridge, United Kingdom",
+      "years_of_experience": 14,
+      "highlights": [
+        "vc_backed_founder",
+        "major_tech_experience",
+        "top_university"
+      ],
+      "education_top": {
+        "school": "MIT",
+        "degree": "PhD Robotics"
+      },
+      "current_role": {
+        "title": "CEO & Co-Founder",
+        "company_name": "Acme Robotics Ltd",
+        "is_current": true
+      },
+      "prior_exits": 1,
+      "stealth_history": false,
+      "departed_subject_company": null,
+      "talent_signal_ids": null,
+      "investor_signal_ids": null,
+      "notable_prior_employers": ["Boston Dynamics", "DeepMind Robotics"]
+    },
+    {
+      "person_id": "per_acme_park",
+      "full_name": "Daniel Park",
+      "tagline": "CTO & Co-Founder, Acme Robotics",
+      "linkedin_url": "https://www.linkedin.com/in/danielpark-acme/",
+      "location": "Cambridge, United Kingdom",
+      "years_of_experience": 11,
+      "highlights": ["fortune_500_experience"],
+      "education_top": {
+        "school": "ETH Zurich",
+        "degree": "MSc Mechatronics"
+      },
+      "current_role": {
+        "title": "CTO & Co-Founder",
+        "company_name": "Acme Robotics Ltd",
+        "is_current": true
+      },
+      "prior_exits": 1,
+      "stealth_history": false,
+      "departed_subject_company": null,
+      "talent_signal_ids": null,
+      "investor_signal_ids": null,
+      "notable_prior_employers": ["ABB Robotics", "Cobalt Robotics"]
+    }
+  ],
+  "peers": {
+    "n_total": 11,
+    "seed_median_usd": 16500000,
+    "seed_mean_usd": 16636363,
+    "range_usd": [13000000, 22000000],
+    "direct_matches": [
+      {
+        "specter_id": "peer_roboflow",
+        "name": "RoboFlow Robotics",
+        "last_funding_usd": 14000000,
+        "last_funding_type": "Series A",
+        "last_funding_date": "2026-03-19",
+        "investors": ["Sequoia Capital", "Atomico"]
+      },
+      {
+        "specter_id": "peer_pictor",
+        "name": "Pictor Systems",
+        "last_funding_usd": 16000000,
+        "last_funding_type": "Series A",
+        "last_funding_date": "2026-01-08",
+        "investors": ["Index Ventures", "LocalGlobe"]
+      }
+    ],
+    "caveat": "similar endpoint returns broad early-stage robotics pool; treat as soft peers"
+  },
+  "flags": []
+}

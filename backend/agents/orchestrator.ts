@@ -2,7 +2,18 @@ import type { DeskFinding, DeskId, RunEvent, RunRequest } from "../lib/contract"
 import { holdWire, queueWire } from "../lib/ledger";
 import { loadMandate } from "../lib/mandate-loader";
 import { parseSPA, parseWireInstructions } from "../lib/sources/pdf-parse";
-import type { FundState, ParsedDeal, ParsedFiles, SendFn } from "../lib/types";
+import {
+  buildSpecterSnapshot,
+  type SnapshotSeed,
+  type SpecterSnapshot,
+} from "../lib/sources/specter";
+import type {
+  FundState,
+  ParsedDeal,
+  ParsedFiles,
+  SendFn,
+  SpecterContext,
+} from "../lib/types";
 import { newRunId, nowIso, withTimeout } from "../lib/util";
 
 import { runCompanyDesk } from "./desks/company";
@@ -52,9 +63,18 @@ export async function runOrchestrator(
 
   const fundState = await loadFixture<FundState>("fixtures/fund-state.json");
   const files = await assembleFiles(req);
+  const specter = await assembleSpecter(req, deal);
+  // Hydrate the parsed deal with snapshot-derived fields so all downstream
+  // logic (parse-prompt, comparable peers, lead investor) stays consistent.
+  if (specter.snapshot.company.specter_id) {
+    deal.company.companyId = specter.snapshot.company.specter_id;
+  }
+  if (specter.snapshot.company.domain) {
+    deal.company.domainHint = specter.snapshot.company.domain;
+  }
 
   const settled = await Promise.allSettled(
-    DESKS.map((d) => runOneDesk(d, deal, mandate, send, fundState, files)),
+    DESKS.map((d) => runOneDesk(d, deal, mandate, send, fundState, files, specter)),
   );
 
   const findings: DeskFinding[] = settled.map((r, i) => {
@@ -103,10 +123,11 @@ async function runOneDesk(
   send: SendFn,
   fundState: FundState,
   files: ParsedFiles,
+  specter: SpecterContext,
 ): Promise<DeskFinding> {
   try {
     const finding = await withTimeout(
-      d.runner(deal, mandate, send, { fundState, files }),
+      d.runner(deal, mandate, send, { fundState, files, specter }),
       DESK_TIMEOUT_MS,
       `desk ${d.id} timed out after ${DESK_TIMEOUT_MS}ms`,
     );
@@ -127,6 +148,23 @@ async function runOneDesk(
     send({ type: "desk.resolved", finding });
     return finding;
   }
+}
+
+async function assembleSpecter(
+  req: RunRequest,
+  deal: ParsedDeal,
+): Promise<SpecterContext> {
+  const seed: SnapshotSeed | undefined =
+    req.fixtureSeed ??
+    (deal.company.domainHint && /meetdex|dex/i.test(deal.company.domainHint)
+      ? "dex-meetdex"
+      : undefined);
+  const websiteUrl = deal.company.domainHint
+    ? `https://${deal.company.domainHint.replace(/^https?:\/\//, "")}`
+    : undefined;
+  const result = await buildSpecterSnapshot({ seed, websiteUrl });
+  void (result.snapshot as SpecterSnapshot);
+  return { snapshot: result.snapshot, cached: result.cached, mode: result.mode };
 }
 
 async function assembleFiles(req: RunRequest): Promise<ParsedFiles> {

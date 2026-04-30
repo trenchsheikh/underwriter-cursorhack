@@ -73,6 +73,7 @@ syndicate_quality:
     - accel
     - index_ventures
     - a16z
+    - andreessen_horowitz
     - founders_fund
     - greylock
     - kleiner_perkins
