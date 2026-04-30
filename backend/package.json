@@ -2,7 +2,7 @@
   "name": "underwriter-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "Mandate — autonomous underwriting backend (Next.js Route Handlers, six desks, SSE).",
+  "description": "UnderWriter — autonomous underwriting backend (Next.js Route Handlers, six desks, SSE).",
   "scripts": {
     "dev": "next dev --port 3001",
     "build": "next build",

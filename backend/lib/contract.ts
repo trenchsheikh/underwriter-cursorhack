@@ -1,5 +1,5 @@
 /**
- * Mandate — backend ↔ frontend contract.
+ * UnderWriter — backend ↔ frontend contract.
  *
  * Both sides import from this file. Changes require both halves of
  * the team to agree. (See backend/docs/Backend.md §2.)

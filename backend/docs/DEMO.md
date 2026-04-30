@@ -93,7 +93,7 @@ A diff view opens showing the agent's proposed addition to `MANDATE.md`:
 +    require_phone_confirmation_above_usd: 1_000_000
 ```
 
-Below it: "PR #19 opened by Mandate agent. Awaiting Managing Partner review."
+Below it: "PR #19 opened by UnderWriter agent. Awaiting Managing Partner review."
 
 Say:
 
@@ -109,7 +109,7 @@ This is the **second screenshot moment** — and the one you post on X.
 
 ## Closing line (5 seconds)
 
-> "Mandate. Your fund's policy, executed. Built on Cursor SDK, Specter, and OpenAI. We caught a 1-letter typo that would have moved $2M. Thank you."
+> "UnderWriter. Your fund's policy, executed. Built on Cursor SDK, Specter, and OpenAI. We caught a 1-letter typo that would have moved $2M. Thank you."
 
 ---
 
