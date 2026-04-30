@@ -1,109 +1,118 @@
-# Underwriter Backend
+# UnderWriter
 
-A FastAPI backend for a loan underwriting workflow: applicants, applications, document uploads, a transparent rule-based risk engine (with optional LLM-assisted narratives), and persisted decisions with full audit trail.
+Autonomous VC-underwriting demo: a Cursor-driven agent that fans out six
+diligence desks, streams findings to the UI over SSE, synthesises a verdict
+(`PROCEED` / `REVIEW` / `HOLD`) and either queues a wire or holds and proposes
+a mandate amendment.
 
-## Features
+This repo is a two-app workspace:
 
-- **Auth** — JWT bearer auth (`/api/v1/auth/login`, `/api/v1/auth/token` OAuth2 password flow). Bootstrap admin is auto-created on first start.
-- **Applicants** — CRUD for applicants (KYC-style fields).
-- **Applications** — Loan applications tied to applicants with status lifecycle (`draft → submitted → in_review → decisioned`).
-- **Documents** — Upload, list, and remove supporting documents per application (multipart/form-data).
-- **Underwriting** — Rule-based risk scoring (deterministic, explainable). Optional LLM-assisted narrative when `CURSOR_API_KEY` is set (any OpenAI-compatible endpoint); the LLM never changes the outcome.
-- **Decisions** — Persisted decisions with risk score, approved amount, APR, machine-readable reasons, and a human-readable narrative. Underwriter overrides supported.
-- **RBAC** — `admin`, `underwriter`, and `viewer` roles enforced on sensitive endpoints.
-- **Ops** — Health check, structured JSON logs, CORS, Dockerfile, docker-compose with Postgres, GitHub Actions CI.
+- [`backend/`](./backend) — Next.js 16 / React 19 Route Handlers. Six desks,
+  SSE streaming, fixture fallbacks. The brief is
+  [`backend/docs/Backend.md`](./backend/docs/Backend.md). Entrypoint:
+  `backend/app/api/run/route.ts`.
+- [`front-end/`](./front-end) — Next.js 16 / React 19 UI (mandate / run /
+  memo screens).
 
-## Quick Start
-
-### Local (SQLite)
-
-```bash
-cp .env.example .env
-pip install -r requirements-dev.txt
-make run
-```
-
-API: http://localhost:8000 — interactive docs at http://localhost:8000/docs
-
-Default admin (override via env): `admin@underwriter.example` / `admin12345`.
-
-### Docker (Postgres)
+## Quick start
 
 ```bash
-docker compose up --build
+# Backend (port 3001) — runs end-to-end against fixtures, no API keys required
+cd backend
+npm install
+npm run dev
 ```
 
-## API Overview
+In a second terminal:
 
-Versioned under `/api/v1`.
+```bash
+cd backend
+npm run smoke
+```
+
+The smoke driver POSTs the seeded `clean-acme` and `bec-acme` scenarios to
+`/api/run`, prints the streaming desk events, fetches the resulting memo, and
+draws the amendment-PR draft for the BEC run.
+
+For the UI:
+
+```bash
+cd front-end
+npm install
+npm run dev
+```
+
+## Backend API
+
+All endpoints are versionless and consumed by the UI over HTTP.
 
 | Method | Path | Description |
-|---|---|---|
-| POST | `/auth/login` | JSON login → JWT |
-| POST | `/auth/token` | OAuth2 password flow |
-| GET | `/auth/me` | Current user |
-| POST | `/auth/users` | Create user (admin) |
-| POST/GET/PATCH/DELETE | `/applicants[/{id}]` | Applicant CRUD |
-| POST/GET/PATCH/DELETE | `/applications[/{id}]` | Application CRUD |
-| POST | `/applications/{id}/submit` | Submit application |
-| POST | `/applications/{id}/evaluate` | Run underwriting (no persistence) |
-| POST | `/applications/{id}/decide` | Persist decision (underwriter+) |
-| GET | `/applications/{id}/decisions` | Decision history |
-| POST/GET/DELETE | `/applications/{id}/documents` | Document upload + listing |
+| ------ | ---- | ----------- |
+| `GET`  | `/api/health`        | Liveness probe |
+| `POST` | `/api/run`           | Start a diligence run; streams `RunEvent` lines as SSE (`text/event-stream`) |
+| `GET`  | `/api/memo/{runId}`  | Returns `MemoData` for a completed run |
+| `POST` | `/api/amend`         | Drafts an amendment PR from an `OverrideContext` |
 
-## Underwriting Engine
+The full SSE event schema lives in
+[`backend/lib/contract.ts`](./backend/lib/contract.ts). Both the backend and
+the UI import from that file.
 
-The engine in `app/services/underwriting/engine.py` produces a transparent score in `[0, 100]` (lower is better) using:
-
-- Credit score band (hard floor at 580; auto-tier at 720+)
-- Debt-to-income ratio (cap at 45%)
-- Payment-to-income ratio (cap at 35%; reduces approved amount instead of declining where possible)
-- Employment tenure
-- Loan purpose risk weighting (home, auto, education < personal < business)
-- Policy-max amount ($250k)
-
-Pricing produces an APR between 3% and 36% as a function of risk score and purpose. Outcomes:
-`approved`, `conditionally_approved`, `refer`, `declined`. Every decision returns a list of human-readable reasons.
-
-If `CURSOR_API_KEY` is set, a short underwriter-style note is appended to the narrative. The request goes to `CURSOR_API_BASE_URL` (any OpenAI-compatible chat-completions endpoint; defaults to `https://api.openai.com/v1`). The LLM cannot change the outcome, amount, or APR.
-
-## Project Layout
-
-```
-app/
-  api/v1/endpoints/   FastAPI routers (auth, applicants, applications, documents, decisions)
-  core/               config, logging, security (JWT + bcrypt)
-  db/                 SQLAlchemy base, session, init/bootstrap
-  models/             ORM models
-  schemas/            Pydantic v2 schemas
-  services/           business logic + underwriting engine
-  main.py             FastAPI app factory
-tests/                pytest suite (engine + API integration)
-```
-
-## Testing
+### Curl smoke
 
 ```bash
-make dev
-make test
+# Health
+curl -s http://localhost:3001/api/health
+
+# Streaming run (clean Acme — expected verdict: proceed, 6/6 desks pass)
+curl -N -X POST http://localhost:3001/api/run \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "prompt": "Wire $2,000,000 to Acme Robotics for their Series A. Lead is Sequoia. 50% pro-rata of our $4,000,000 allocation.",
+    "files": [
+      {"name":"acme_spa.pdf","mime":"application/pdf","size":0,"ref":"spa"},
+      {"name":"wire_instructions_clean.pdf","mime":"application/pdf","size":0,"ref":"wi-clean"}
+    ],
+    "fixtureSeed": "clean-acme"
+  }'
+
+# Memo for a completed run
+curl -s http://localhost:3001/api/memo/<runId>
+
+# Amend (draft a PR after a wire-safety BLOCK)
+curl -s -X POST http://localhost:3001/api/amend \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "runId": "<runId>",
+    "blockingDesk": "wire",
+    "blockingReason": "Lookalike domain acrne.co vs verified acme.co — wire_safety §6.2",
+    "clause": "wire_safety §6.2",
+    "rationale": "Confirmed BEC pattern; tighten policy."
+  }'
 ```
 
-Tests use SQLite + FastAPI `TestClient` and cover the underwriting engine plus the end-to-end API flow.
+## Demo behaviour
+
+- `DEMO_FORCE_FIXTURES=true` makes every source skip live calls and serve from
+  `backend/fixtures/`. Use this on stage if the network goes sideways.
+- The clean Acme deal resolves all six desks PASS and produces a `proceed`
+  verdict.
+- The BEC Acme deal lands a wire-safety BLOCK with four signals: lookalike
+  domain (edit distance 2 from `acme.co`), domain age 6 days, DKIM fail, and
+  beneficial-owner mismatch — driving a `hold` verdict.
 
 ## Configuration
 
-All settings live in `app/core/config.py` and can be overridden via environment variables or a local `.env` file (see `.env.example`).
+All external APIs (Specter, Companies House, OpenSanctions, WHOIS, OpenAI) are
+optional — the backend defaults to fixtures and runs cleanly with no keys set.
+See [`backend/.env.example`](./backend/.env.example) for the full list.
 
-| Variable | Default | Notes |
-|---|---|---|
-| `DATABASE_URL` | `sqlite:///./underwriter.db` | Use `postgresql+psycopg2://...` in production |
-| `JWT_SECRET` | dev placeholder | **Override in any non-dev environment** |
-| `JWT_EXPIRES_MINUTES` | `60` | Access token TTL |
-| `CURSOR_API_KEY` | _(unset)_ | Enables LLM-assisted narratives (Cursor or any OpenAI-compatible key) |
-| `CURSOR_API_BASE_URL` | `https://api.openai.com/v1` | OpenAI-compatible base URL used for `/chat/completions` |
-| `CURSOR_MODEL` | `gpt-4o-mini` | Used only when key is present |
-| `CORS_ORIGINS` | `*` | Comma-separated |
-| `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` | dev defaults | Created only if no users exist |
+## Build / typecheck
+
+```bash
+cd backend
+npm run typecheck
+npm run build
+```
 
 ## License
 
