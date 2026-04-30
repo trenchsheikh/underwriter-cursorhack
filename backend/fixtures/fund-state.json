@@ -1,0 +1,9 @@
+{
+  "asOf": "2026-04-30",
+  "calledCapitalUsd": 60000000,
+  "positions": {
+    "acme-robotics": 0,
+    "northwind": 1500000,
+    "globex-ai": 4000000
+  }
+}
