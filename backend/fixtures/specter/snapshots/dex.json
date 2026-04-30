@@ -1,0 +1,166 @@
+{
+  "fetched_at": "2026-04-30T19:00:00.000Z",
+  "company": {
+    "specter_id": "682dae1369dc2657a5e56c33",
+    "legal_name": "Dex",
+    "domain": "meetdex.ai",
+    "hq_city": "London",
+    "hq_country": "United Kingdom",
+    "founded_year": 2025,
+    "employee_count": 28,
+    "growth_stage": "seed_stage",
+    "operating_status": "active",
+    "tech_verticals": [
+      ["Future of Work", "Talent Acquisition and Employer Branding"],
+      ["Commerce & Marketplaces", "B2B Marketplaces & Procurement Networks"],
+      ["Enterprise Automation", "AI Agents and Process Copilots"]
+    ],
+    "industries": ["Software", "Talent", "AI"],
+    "tagline": "AI talent platform — match top operators to high-growth roles",
+    "description": "Dex is an AI talent platform for matching senior operators to high-growth companies, founded in 2025 and headquartered in London.",
+    "funding": {
+      "total_usd": 8400000,
+      "last_type": "Seed",
+      "last_usd": 5300000,
+      "last_date": "2026-04-27",
+      "investors": [
+        "Andreessen Horowitz",
+        "a16z speedrun",
+        "Notion Capital",
+        "Concept Ventures",
+        "Bryce Keane",
+        "Charlie Songhurst",
+        "Eric French",
+        "Kamil Mieczakowski",
+        "Nilan Peiris",
+        "Stephen Whitworth"
+      ],
+      "round_count": 2
+    },
+    "highlights": [
+      "top_tier_investors",
+      "raised_last_month",
+      "recent_funding",
+      "headcount_3mo_surge",
+      "headcount_6mo_momentum",
+      "social_followers_3mo_surge",
+      "social_followers_6mo_momentum",
+      "web_traffic_3mo_dip"
+    ],
+    "new_highlights": ["raised_last_month"],
+    "traction": {
+      "web_visits_latest": 41200,
+      "headcount_6mo_change": 17,
+      "linkedin_followers_latest": 9800
+    }
+  },
+  "founders": [
+    {
+      "person_id": "per_db6afacb7cd148865e09936c",
+      "full_name": "Paddy Lambros",
+      "tagline": "CEO & Co-Founder @ Dex, AI Talent Partner — Top 100 Talent Leader",
+      "linkedin_url": "https://www.linkedin.com/in/paddylambros/",
+      "location": "London, United Kingdom",
+      "years_of_experience": 12,
+      "highlights": [
+        "hyper_connector",
+        "major_tech_experience",
+        "prior_vc_backed_experience",
+        "vc_backed_founder"
+      ],
+      "education_top": {
+        "school": "University of the West of England",
+        "degree": "BA Politics"
+      },
+      "current_role": {
+        "title": "CEO & Co-Founder",
+        "company_name": "Dex",
+        "is_current": true
+      },
+      "prior_exits": 0,
+      "stealth_history": false,
+      "departed_subject_company": null,
+      "talent_signal_ids": ["f2e2b16c-dd24-418d-ac83-2e28a4434366"],
+      "investor_signal_ids": null,
+      "notable_prior_employers": ["Atomico", "Improbable", "Sensat"]
+    },
+    {
+      "person_id": "per_285642ef6e02ed9f2c1544ec",
+      "full_name": "Harry Uglow",
+      "tagline": "Building something new | Co-founder & former CTO of Dex | a16z speedrun scout",
+      "linkedin_url": "https://www.linkedin.com/in/harry-uglow/",
+      "location": "London, United Kingdom",
+      "years_of_experience": 8,
+      "highlights": ["prior_vc_backed_founder", "top_university"],
+      "education_top": {
+        "school": "Imperial College London",
+        "degree": "MEng Computing (AI)"
+      },
+      "current_role": {
+        "title": "Building something new",
+        "company_name": null,
+        "is_current": false
+      },
+      "prior_exits": 0,
+      "stealth_history": false,
+      "departed_subject_company": {
+        "end_date": "2026-04-01",
+        "days_before_close": 26
+      },
+      "talent_signal_ids": [
+        "0adf6f06-89c6-43d4-b0bd-08ab7db7b411",
+        "eef09a8d-133b-4d41-8488-97f5bba6b73e"
+      ],
+      "investor_signal_ids": null,
+      "notable_prior_employers": ["Atomico", "Kinscape", "Ava Security"]
+    }
+  ],
+  "peers": {
+    "n_total": 10,
+    "seed_median_usd": 6000000,
+    "seed_mean_usd": 14400000,
+    "range_usd": [4500000, 50000000],
+    "direct_matches": [
+      {
+        "specter_id": "peer_agentmail",
+        "name": "AgentMail",
+        "last_funding_usd": 6000000,
+        "last_funding_type": "Seed",
+        "last_funding_date": "2026-03-12",
+        "investors": ["Y Combinator", "General Catalyst", "Paul Graham", "Dharmesh Shah"]
+      },
+      {
+        "specter_id": "peer_coverflow",
+        "name": "Coverflow",
+        "last_funding_usd": 4800000,
+        "last_funding_type": "Seed",
+        "last_funding_date": "2026-02-28",
+        "investors": ["AIX Ventures", "Afore Capital", "Founder Collective"]
+      }
+    ],
+    "caveat": "similar endpoint returns broad seed-AI pool; treat as soft peers"
+  },
+  "flags": [
+    {
+      "code": "founder_departed_before_close",
+      "severity": "review",
+      "detail": "Harry Uglow (Cofounder & CTO) left 2026-04-01, 26 days before Seed close 2026-04-27",
+      "citations": [
+        "per_285642ef6e02ed9f2c1544ec",
+        "682dae1369dc2657a5e56c33"
+      ]
+    },
+    {
+      "code": "ex_founder_now_at_investor",
+      "severity": "review",
+      "detail": "Harry Uglow's current tagline references \"a16z speedrun scout\"; a16z and a16z speedrun are listed investors in the closing round",
+      "citations": ["per_285642ef6e02ed9f2c1544ec"]
+    },
+    {
+      "code": "web_traffic_dip_during_growth",
+      "severity": "info",
+      "detail": "web_traffic_3mo_dip flag set despite headcount_3mo_surge — investigate product traction",
+      "citations": ["682dae1369dc2657a5e56c33"]
+    }
+  ]
+}

@@ -24,6 +24,8 @@ UnderWriter parses the prompt and SPA, fans **six concurrent diligence desks** o
 
 > **The demo catches a $2M Business Email Compromise in 60 seconds** that a junior associate would have wired.
 
+The Specter integration follows [`backend/docs/SPECTER_FLOW.md`](./backend/docs/SPECTER_FLOW.md) end-to-end — `POST /companies` → `GET /companies/{id}/people` → `GET /people/{id}` → `GET /companies/{id}/similar`, the §3b derived fields (`prior_exits`, `stealth_history`, `departed_subject_company`), and the §4 cross-step underwriting flags (`founder_departed_before_close`, `ex_founder_now_at_investor`, `funding_outlier_high|low`). The canonical worked example — Dex (`meetdex.ai`) closing a $5.3M Seed led by a16z with a co-founder who exited 26 days before close and now scouts for the lead — ships as a third demo seed (`dex-meetdex`).
+
 ---
 
 ## Why this matters
@@ -327,6 +329,18 @@ curl -N -X POST http://localhost:3001/api/run \
     "fixtureSeed": "clean-acme"
   }'
 
+# Streaming run — SPECTER_FLOW canonical Dex deal (expected verdict: REVIEW)
+curl -N -X POST http://localhost:3001/api/run \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "prompt": "Wire $2,650,000 to Dex for their Seed. Lead is Andreessen Horowitz. 50% pro-rata of our $5,300,000 allocation.",
+    "files": [
+      {"name":"dex_spa.pdf","mime":"application/pdf","size":0,"ref":"spa"},
+      {"name":"wire_instructions_clean.pdf","mime":"application/pdf","size":0,"ref":"wi-clean"}
+    ],
+    "fixtureSeed": "dex-meetdex"
+  }'
+
 # Memo for a completed run
 curl -s http://localhost:3001/api/memo/<runId>
 
@@ -354,6 +368,7 @@ The demo ships with two seeded buttons — one contrast, one story.
 | --- | --- | --- |
 | 🟢 **Clean Acme deal** | `PROCEED` · 6/6 desks pass | Tiles light up green over ~30 s · IC memo renders · wire queues |
 | 🔴 **BEC Acme deal** | `HOLD` · Wire desk BLOCK | Five tiles green; **Wire safety** lands red with: lookalike domain (`acrne.co` ↔ `acme.co`, edit distance 1), domain age 6 days, DKIM fail, beneficial-owner mismatch · BLOCK modal cites `wire_safety §6.2` · GP clicks **Override & amend** → Cursor Composer 2 drafts a `MANDATE.md` PR |
+| 🟡 **Dex (`meetdex.ai`)** | `REVIEW` · Founder desk flag | Five tiles green; **Founder desk** turns yellow with two SPECTER_FLOW.md §4 flags surfaced: `founder_departed_before_close` (Harry Uglow exited 26 days before the Seed close) and `ex_founder_now_at_investor` (his current tagline references "a16z speedrun scout", a listed investor). Verdict is REVIEW — the data does not block the deal, but the AI underwriter has surfaced what a human reader might miss. |
 
 Set `DEMO_FORCE_FIXTURES=true` to skip every live API and serve from `backend/fixtures/`. **The on-stage panic button.**
 
@@ -383,10 +398,12 @@ underwriter-cursorhack/
 │   │   ├── mandate-evaluator.ts      # pure rule evaluation (no LLM)
 │   │   ├── ledger.ts                 # mock wire ledger
 │   │   ├── cache.ts                  # in-memory + fixture fallback
-│   │   └── sources/                  # specter · companies-house
-│   │                                 # opensanctions · whois
-│   │                                 # pdf-parse · llm (OpenAI wrapper)
-│   ├── fixtures/                     # full data fallback set
+│   │   └── sources/                  # specter (SPECTER_FLOW.md impl)
+│   │                                 # companies-house · opensanctions
+│   │                                 # whois · pdf-parse · llm
+│   ├── fixtures/
+│   │   └── specter/snapshots/        # canonical SpecterSnapshot fixtures
+│   │                                 # (dex.json, acme.json)
 │   ├── MANDATE.md                    # the policy file the agent runs against
 │   └── docs/                         # Backend.md · ARCHITECTURE.md · DEMO.md
 └── front-end/                        # Next.js 16 UI (port 3000)

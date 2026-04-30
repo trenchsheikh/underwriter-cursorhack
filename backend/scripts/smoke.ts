@@ -17,6 +17,7 @@ import type { RunEvent, MemoData, AmendmentDraft } from "../lib/contract";
 const BASE = process.env.BASE ?? "http://localhost:3001";
 
 const PROMPT = `Wire $2,000,000 to Acme Robotics for their Series A. Lead is Sequoia. 50% pro-rata of our $4,000,000 allocation. SPA and wire instructions attached.`;
+const DEX_PROMPT = `Wire $2,650,000 to Dex for their Seed. Lead is Andreessen Horowitz. 50% pro-rata of our $5,300,000 allocation. SPA attached.`;
 
 interface ScenarioResult {
   runId: string;
@@ -24,11 +25,18 @@ interface ScenarioResult {
   verdict: Extract<RunEvent, { type: "verdict" }>["verdict"] | null;
 }
 
-async function runScenario(seed: "clean-acme" | "bec-acme"): Promise<ScenarioResult> {
+async function runScenario(
+  seed: "clean-acme" | "bec-acme" | "dex-meetdex",
+): Promise<ScenarioResult> {
   const body = {
-    prompt: PROMPT,
+    prompt: seed === "dex-meetdex" ? DEX_PROMPT : PROMPT,
     files: [
-      { name: "acme_spa.pdf", mime: "application/pdf", size: 0, ref: "spa" },
+      {
+        name: seed === "dex-meetdex" ? "dex_spa.pdf" : "acme_spa.pdf",
+        mime: "application/pdf",
+        size: 0,
+        ref: "spa",
+      },
       seed === "bec-acme"
         ? { name: "wire_instructions_bec.eml", mime: "message/rfc822", size: 0, ref: "wi-bec" }
         : { name: "wire_instructions_clean.pdf", mime: "application/pdf", size: 0, ref: "wi-clean" },
@@ -144,6 +152,36 @@ async function main(): Promise<void> {
   console.log("  amendment branch:", amend.branch);
   console.log("  amendment diff:");
   console.log(amend.diff.split("\n").map((l) => `    ${l}`).join("\n"));
+
+  console.log("> running Dex (meetdex.ai) — SPECTER_FLOW canonical scenario");
+  const dex = await runScenario("dex-meetdex");
+  if (!dex.verdict || (dex.verdict.action !== "review" && dex.verdict.action !== "hold")) {
+    throw new Error(`dex: expected action=review|hold, got ${dex.verdict?.action}`);
+  }
+  const dexMemo = await fetchMemo(dex.runId);
+
+  // SPECTER_FLOW.md §4 promises these flags must surface for Dex.
+  const founderFinding = dexMemo.findings.find((f) => f.desk === "founder");
+  const founderFactsBlob = (founderFinding?.facts ?? []).join("\n");
+  const expectedFlags = [
+    "founder_departed_before_close",
+    "ex_founder_now_at_investor",
+  ];
+  for (const code of expectedFlags) {
+    if (!founderFactsBlob.includes(code)) {
+      throw new Error(`dex: founder desk did not surface ${code}`);
+    }
+  }
+
+  console.log("  dex memo:", {
+    runId: dexMemo.runId,
+    action: dexMemo.verdict.action,
+    summary: dexMemo.summary.slice(0, 160),
+  });
+  console.log(
+    "  dex specter-driven flags surfaced via Founder desk:",
+    expectedFlags.join(", "),
+  );
 
   console.log("\nALL CHECKS PASSED");
 }

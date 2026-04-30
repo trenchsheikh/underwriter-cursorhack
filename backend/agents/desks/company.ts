@@ -3,57 +3,80 @@ import {
   getCompaniesHouseProfile,
   searchCompaniesHouse,
 } from "../../lib/sources/companies-house";
-import { getSpecterCompany } from "../../lib/sources/specter";
 import type { DeskRunner } from "../../lib/types";
 import { round2, sleep } from "../../lib/util";
 
-export const runCompanyDesk: DeskRunner = async (deal, _mandate, send) => {
+export const runCompanyDesk: DeskRunner = async (deal, _mandate, send, ctx) => {
   const start = Date.now();
   send({ type: "desk.start", desk: "company" });
   await sleep(2000);
-  send({ type: "desk.progress", desk: "company", message: "resolving domain → enrichment" });
+  send({
+    type: "desk.progress",
+    desk: "company",
+    message: "specter snapshot → registry cross-check",
+  });
 
-  const domain = deal.company.domainHint ?? "acme.co";
-  const [{ value: specter, cached: specterCached }, { value: search, cached: chSearchCached }] =
-    await Promise.all([
-      getSpecterCompany(domain),
-      searchCompaniesHouse(deal.company.name),
-    ]);
+  const company = ctx.specter.snapshot.company;
+  const { value: search, cached: chSearchCached } = await searchCompaniesHouse(deal.company.name);
 
-  const number = search.items[0]?.company_number ?? "13427891";
-  const { value: ch, cached: chCached } = await getCompaniesHouseProfile(number);
+  // The CH fixtures are aligned with Acme; the Dex fixture is non-UK so we
+  // soft-skip the registry call when Specter says HQ ≠ "United Kingdom".
+  const hqIsUk = /united kingdom|uk/i.test(company.hq_country);
+
+  const ch = hqIsUk
+    ? await getCompaniesHouseProfile(search.items[0]?.company_number ?? "13427891").catch(() => null)
+    : null;
 
   const citations: Citation[] = [
     {
       source: "specter",
-      ref: specter.id,
-      detail: `${specter.name} · ${specter.headcount} FTE · ${specter.status}`,
-      cached: specterCached,
-    },
-    {
-      source: "companies-house",
-      ref: ch.company_number,
-      detail: `${ch.company_name} · status ${ch.company_status} · inc. ${ch.date_of_creation}`,
-      cached: chCached || chSearchCached,
+      ref: company.specter_id || "(no-id)",
+      detail: `${company.legal_name} · ${company.employee_count} FTE · ${company.operating_status} · ${company.hq_city}, ${company.hq_country}`,
+      cached: ctx.specter.cached,
     },
   ];
+
+  if (ch) {
+    citations.push({
+      source: "companies-house",
+      ref: ch.value.company_number,
+      detail: `${ch.value.company_name} · status ${ch.value.company_status} · inc. ${ch.value.date_of_creation}`,
+      cached: ch.cached || chSearchCached,
+    });
+  }
 
   for (const c of citations) send({ type: "desk.citation", desk: "company", citation: c });
 
-  const status: DeskFinding["status"] =
-    ch.company_status !== "active" ? "block" : "pass";
-  const inc = new Date(ch.date_of_creation);
-  const ageDays = (Date.now() - inc.getTime()) / 86_400_000;
-  const yearMatch = Math.abs(specter.foundedYear - inc.getFullYear()) <= 1;
+  const operatingActive = company.operating_status === "active";
+  const chActive = ch ? ch.value.company_status === "active" : true;
+  const status: DeskFinding["status"] = !operatingActive || !chActive ? "block" : "pass";
 
-  const facts = [
-    `Inc. ${ch.date_of_creation} · ${ch.registered_office_address.locality}, ${ch.registered_office_address.country}`,
-    `${specter.headcount} FTE · status ${ch.company_status}`,
-    `Founded year cross-check: Specter ${specter.foundedYear} ↔ registry ${inc.getFullYear()} ${yearMatch ? "✓" : "⚠"}`,
+  const yearMatch =
+    ch && company.founded_year
+      ? Math.abs(company.founded_year - new Date(ch.value.date_of_creation).getFullYear()) <= 1
+      : true;
+
+  const facts: string[] = [
+    `${company.legal_name} (${company.domain || "no domain"}) · founded ${company.founded_year || "?"} · HQ ${company.hq_city}${company.hq_country ? ", " + company.hq_country : ""}`,
+    `${company.employee_count} FTE · growth_stage ${company.growth_stage || "n/a"} · operating_status ${company.operating_status || "n/a"}`,
   ];
+  if (ch) {
+    facts.push(
+      `Registry cross-check: Specter founded_year ${company.founded_year} ↔ CH inc. ${new Date(ch.value.date_of_creation).getFullYear()} ${yearMatch ? "✓" : "⚠"}`,
+    );
+  } else if (hqIsUk) {
+    facts.push("Companies House lookup unavailable; relying on Specter");
+  } else {
+    facts.push(`Non-UK HQ — Companies House not applicable (${company.hq_country})`);
+  }
+  if (company.tech_verticals.length > 0) {
+    facts.push(
+      `Tech verticals: ${company.tech_verticals.map((v) => v.join(" / ")).join("; ")}`,
+    );
+  }
 
   const confidence = round2(
-    status === "block" ? 0.99 : ageDays > 365 && yearMatch ? 0.94 : 0.78,
+    status === "block" ? 0.99 : yearMatch ? 0.94 : 0.78,
   );
 
   return {
@@ -63,7 +86,7 @@ export const runCompanyDesk: DeskRunner = async (deal, _mandate, send) => {
     status,
     confidence,
     durationMs: Date.now() - start,
-    primary: `${specter.name} — ${ch.company_status}`,
+    primary: `${company.legal_name} — ${company.operating_status || "unknown"}`,
     facts,
     citations,
   };

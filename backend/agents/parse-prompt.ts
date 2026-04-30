@@ -21,20 +21,30 @@ export function parsePrompt(req: RunRequest): ParsedDeal | null {
     req.fixtureSeed === "clean-acme" ||
     req.fixtureSeed === "bec-acme" ||
     /acme robotics/i.test(prompt);
+  const seedHasDex =
+    req.fixtureSeed === "dex-meetdex" ||
+    /\bdex\b|meetdex\.ai/i.test(prompt);
 
-  const company = seedHasAcme
-    ? { name: "Acme Robotics Ltd", domainHint: "acme.co", companyId: "acme-robotics" }
-    : extractCompany(prompt);
+  const company = seedHasDex
+    ? { name: "Dex", domainHint: "meetdex.ai", companyId: "dex" }
+    : seedHasAcme
+      ? { name: "Acme Robotics Ltd", domainHint: "acme.co", companyId: "acme-robotics" }
+      : extractCompany(prompt);
 
   if (!company || !amount) return null;
+
+  const defaultStage: ParsedDeal["round"]["stage"] = seedHasDex ? "seed" : "series_a";
+  const defaultLead = seedHasDex ? "Andreessen Horowitz" : "Sequoia Capital";
+  const sector = seedHasDex ? "ai_infrastructure" : "robotics";
+  const geography = seedHasDex ? "EU" : "UK";
 
   return {
     company,
     round: {
-      stage: stage ?? "series_a",
-      leadInvestor: lead ?? "Sequoia Capital",
-      sector: "robotics",
-      geography: "UK",
+      stage: stage ?? defaultStage,
+      leadInvestor: lead ?? defaultLead,
+      sector,
+      geography,
     },
     amountUsd: amount,
     proRataPct: proRata ?? 50,
