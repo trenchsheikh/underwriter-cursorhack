@@ -1,9 +1,11 @@
 """Optional LLM-assisted narrative.
 
-If `OPENAI_API_KEY` is set, requests a short, plain-English explanation of
-the decision. Falls back to the deterministic narrative produced by the
-rule-based engine when unset or on any error. The rule-based decision is
-always authoritative; the LLM never changes the outcome.
+If `CURSOR_API_KEY` is set, requests a short, plain-English explanation of
+the decision from an OpenAI-compatible chat-completions endpoint
+(`CURSOR_API_BASE_URL`, defaults to `https://api.openai.com/v1`). Falls
+back to the deterministic narrative produced by the rule-based engine when
+unset or on any error. The rule-based decision is always authoritative;
+the LLM never changes the outcome.
 """
 
 from __future__ import annotations
@@ -28,11 +30,11 @@ _PROMPT = (
 
 def enrich_narrative(application: Application, result: EvaluationResult) -> str | None:
     settings = get_settings()
-    if not settings.openai_api_key:
+    if not settings.cursor_api_key:
         return result.narrative
 
     payload = {
-        "model": settings.openai_model,
+        "model": settings.cursor_model,
         "messages": [
             {"role": "system", "content": _PROMPT},
             {
@@ -51,12 +53,14 @@ def enrich_narrative(application: Application, result: EvaluationResult) -> str 
         "temperature": 0.2,
         "max_tokens": 220,
     }
+    base_url = settings.cursor_api_base_url.rstrip("/")
+    url = f"{base_url}/chat/completions"
     try:
         with httpx.Client(timeout=15.0) as client:
             resp = client.post(
-                "https://api.openai.com/v1/chat/completions",
+                url,
                 headers={
-                    "Authorization": f"Bearer {settings.openai_api_key}",
+                    "Authorization": f"Bearer {settings.cursor_api_key}",
                     "Content-Type": "application/json",
                 },
                 json=payload,
