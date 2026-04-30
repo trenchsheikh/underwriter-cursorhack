@@ -24,7 +24,10 @@ yarn-error.log*
 # Build outputs
 frontend/dist/
 frontend/build/
+front-end/.next/
+front-end/out/
 backend/dist/
+*.tsbuildinfo
 
 # Environment
 .env
