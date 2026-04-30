@@ -18,7 +18,7 @@ export async function draftAmendment(
   const diff = buildDiff(override);
   const rationale = await rationaleFor(override);
 
-  const prTitle = `[Mandate] amend ${override.clause} after run ${override.runId}`;
+  const prTitle = `[UnderWriter] amend ${override.clause} after run ${override.runId}`;
   const prBody = [
     `### Rationale`,
     rationale,

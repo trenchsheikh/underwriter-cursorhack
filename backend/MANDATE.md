@@ -4,8 +4,9 @@
 #
 # This file is the runtime policy for all autonomous wires.
 # The YAML frontmatter is parsed and evaluated by the Mandate
-# desk on every diligence run. The prose below is the
-# human-readable charter that LPs receive. The two must agree.
+# desk on every diligence run (UnderWriter platform). The prose
+# below is the human-readable charter that LPs receive. The two
+# must agree.
 #
 # Amendments are made via pull request only. Every PR must
 # include the override that triggered it (if any) and a
@@ -133,7 +134,7 @@ calibration:
 
 Acme Ventures III is a $150M Delaware-domiciled venture fund investing in technical founders building infrastructure for the AI-native enterprise. We lead or co-lead at pre-seed and seed and selectively follow strong tier-1 leads at Series A. Our investing period is five years; the fund's life is ten.
 
-This document is the operative policy for **all autonomous wires** initiated by the Mandate platform on behalf of the fund. It is the source of truth for the runtime; the YAML frontmatter is parsed and evaluated on every diligence run, and the prose below is what limited partners receive in their quarterly compliance pack. The two must agree at all times.
+This document is the operative policy for **all autonomous wires** initiated by the UnderWriter platform on behalf of the fund. It is the source of truth for the runtime; the YAML frontmatter is parsed and evaluated on every diligence run, and the prose below is what limited partners receive in their quarterly compliance pack. The two must agree at all times.
 
 ## 2. Investment scope
 
@@ -157,7 +158,7 @@ Wires are authorised as follows:
 - $500,000 to **$2,000,000** — two signers (Partner or Managing Partner).
 - Above **$2,000,000** — two Managing Partner signatures and recorded IC minutes.
 
-The Mandate platform enforces this electronically. Any attempt to wire above a tier without the required signatures is blocked at the orchestrator layer.
+The UnderWriter platform enforces this electronically. Any attempt to wire above a tier without the required signatures is blocked at the orchestrator layer.
 
 ## 6. Wire safety policy
 
