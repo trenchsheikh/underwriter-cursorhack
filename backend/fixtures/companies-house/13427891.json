@@ -1,0 +1,20 @@
+{
+  "company_number": "13427891",
+  "company_name": "ACME ROBOTICS LIMITED",
+  "company_status": "active",
+  "date_of_creation": "2021-04-19",
+  "registered_office_address": {
+    "address_line_1": "12 Mill Lane",
+    "locality": "Cambridge",
+    "country": "United Kingdom"
+  },
+  "sic_codes": ["28991", "62012"],
+  "officers": [
+    { "name": "CHEN, Sarah",    "role": "director", "appointed_on": "2021-04-19" },
+    { "name": "PARK, Daniel",   "role": "director", "appointed_on": "2021-04-19" }
+  ],
+  "persons_with_significant_control": [
+    { "name": "CHEN, Sarah",  "nature_of_control": ["ownership-of-shares-25-to-50-percent"] },
+    { "name": "PARK, Daniel", "nature_of_control": ["ownership-of-shares-25-to-50-percent"] }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "valuationPostMoneyUsd": 80000000,
+  "roundSizeUsd": 18000000,
+  "leadInvestor": "Sequoia Capital",
+  "proRataPct": 50,
+  "liquidationPref": "1x non-participating"
+}

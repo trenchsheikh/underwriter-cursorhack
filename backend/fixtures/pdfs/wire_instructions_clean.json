@@ -1,0 +1,9 @@
+{
+  "sourceEmailDomain": "acme.co",
+  "accountHolderName": "Acme Robotics Limited",
+  "bankCountry": "UK",
+  "swift": "BARCGB22",
+  "dkimPass": true,
+  "spfPass": true,
+  "domainCreatedAt": "2021-01-15T00:00:00Z"
+}

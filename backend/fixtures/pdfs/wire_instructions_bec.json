@@ -1,0 +1,9 @@
+{
+  "sourceEmailDomain": "acrne.co",
+  "accountHolderName": "AC Robotics LLC",
+  "bankCountry": "UK",
+  "swift": "BARCGB22",
+  "dkimPass": false,
+  "spfPass": true,
+  "domainCreatedAt": "2026-04-24T00:00:00Z"
+}

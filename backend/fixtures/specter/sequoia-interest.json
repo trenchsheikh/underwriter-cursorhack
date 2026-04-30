@@ -1,0 +1,6 @@
+[
+  { "partner": "Roelof Botha",   "fund": "Sequoia Capital", "signalType": "partner-meeting", "at": "2026-04-22T14:30:00Z" },
+  { "partner": "Pat Grady",      "fund": "Sequoia Capital", "signalType": "founder-call",    "at": "2026-04-18T09:15:00Z" },
+  { "partner": "Sonya Huang",    "fund": "Sequoia Capital", "signalType": "diligence-intro", "at": "2026-04-12T17:00:00Z" },
+  { "partner": "Andrew Reed",    "fund": "Sequoia Capital", "signalType": "team-dinner",     "at": "2026-04-05T19:30:00Z" }
+]
