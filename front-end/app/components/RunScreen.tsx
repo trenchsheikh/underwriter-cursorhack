@@ -1,162 +1,167 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { Icon } from "./Icon";
 import { DeskTile } from "./DeskTile";
 import { DeskDrawer } from "./DeskDrawer";
-import { VerdictBar, type VerdictKind } from "./VerdictBar";
+import { VerdictBar } from "./VerdictBar";
 import { BlockModal } from "./BlockModal";
 import { AmendmentPR } from "./AmendmentPR";
 import { useElapsed } from "./useElapsed";
 import {
-  FILES_BEC,
-  FILES_CLEAN,
-  FIXTURES,
-  PROMPT_TEXT,
+  DEMO_PROMPT,
+  DEMO_FILES_BEC,
+  DEMO_FILES_CLEAN,
 } from "../state/fixtures";
-import type {
-  Amendment,
-  DeskState,
-  Route,
-  RunState,
-  Scenario,
-} from "../state/types";
+import type { Amendment, Route } from "../state/types";
+import type { DeskId, OverrideContext } from "../lib/contract";
+import {
+  INITIAL_RUN_STATE,
+  resolvedCount as countResolved,
+  runReducer,
+  type Scenario,
+} from "../lib/runReducer";
+import { DESK_META, DESK_ORDER } from "../lib/deskMeta";
+import { startRun } from "../lib/run";
 
 interface Props {
-  runState: RunState;
-  setRunState: React.Dispatch<React.SetStateAction<RunState>>;
   go: (r: Route) => void;
   setToast: (s: string) => void;
-  /** Next available PR id (used by the "Override and amend" flow). */
-  nextAmendmentId: number;
   /** Pushes a fresh amendment onto the global log. */
   onMergeAmendment: (a: Amendment) => void;
+  /** Next available PR id (FE-local — backend doesn't manage these yet). */
+  nextAmendmentId: number;
+  /** Latest run id; lifted up so MemoScreen can read it after navigation. */
+  publishRunId: (id: string | null) => void;
+  /** Latest verdict; same reason. */
+  publishVerdict: (action: "proceed" | "review" | "hold" | null) => void;
 }
 
-/** Compress timings 4× so the demo lands in ~7.5s instead of 30s. */
-const SCALE = 0.25;
-
 export function RunScreen({
-  runState,
-  setRunState,
   go,
   setToast,
-  nextAmendmentId,
   onMergeAmendment,
+  nextAmendmentId,
+  publishRunId,
+  publishVerdict,
 }: Props) {
-  const { mode, scenario, deskStates, citesShown, prompt, files } = runState;
-  const [drawer, setDrawer] = useState<number | null>(null);
+  const [state, dispatch] = useReducer(runReducer, INITIAL_RUN_STATE);
+  const [drawer, setDrawer] = useState<DeskId | null>(null);
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [showAmendPR, setShowAmendPR] = useState(false);
 
-  const fixture = scenario ? FIXTURES[scenario] : FIXTURES.clean;
-  const totalElapsed = useElapsed(mode === "running");
-  const resolvedCount = deskStates.filter(
-    (d) => d !== "streaming" && d !== "idle",
-  ).length;
+  // Cancel handle for the active SSE stream.
+  const abortRef = useRef<(() => void) | null>(null);
+  // BlockModal opens 600ms after the BEC verdict arrives — same pacing as before.
+  const blockModalTimerRef = useRef<number | null>(null);
 
-  // ===== Load a scenario: typewriter prompt + staggered file pills =====
+  const { mode, scenario, prompt, files, runId, mandateVersion, fundId, startedAt } = state;
+  const totalElapsed = useElapsed(mode === "running");
+  const resolvedCount = countResolved(state);
+
+  /* ----------------------------------------------------------- */
+  /* Scenario load: typewriter + staggered file pills (client)   */
+  /* ----------------------------------------------------------- */
+
   const loadScenario = (sc: Scenario) => {
     if (mode === "typing" || mode === "running") return;
 
-    setRunState((s) => ({
-      ...s,
-      mode: "typing",
-      scenario: sc,
-      prompt: "",
-      files: [],
-      deskStates: Array(6).fill("idle") as DeskState[],
-      citesShown: Array(6).fill(0),
-    }));
+    dispatch({ type: "LOAD_SCENARIO_START", scenario: sc });
 
-    const target = PROMPT_TEXT;
     let i = 0;
     const tick = () => {
       i++;
-      setRunState((s) => ({ ...s, prompt: target.slice(0, i) }));
-      if (i < target.length) {
-        setTimeout(tick, 12);
+      dispatch({ type: "PROMPT_TOKEN", text: DEMO_PROMPT.slice(0, i) });
+      if (i < DEMO_PROMPT.length) {
+        window.setTimeout(tick, 12);
       } else {
-        const targetFiles = sc === "clean" ? FILES_CLEAN : FILES_BEC;
+        const targetFiles = sc === "clean" ? DEMO_FILES_CLEAN : DEMO_FILES_BEC;
         targetFiles.forEach((f, idx) => {
-          setTimeout(() => {
-            setRunState((s) => ({
-              ...s,
-              files: [...s.files, f],
-              ...(idx === targetFiles.length - 1 ? { mode: "ready" } : {}),
-            }));
+          window.setTimeout(() => {
+            dispatch({
+              type: "FILE_ATTACHED",
+              file: f,
+              isLast: idx === targetFiles.length - 1,
+            });
           }, 120 + idx * 80);
         });
       }
     };
-    setTimeout(tick, 80);
+    window.setTimeout(tick, 80);
   };
 
-  // ===== Run six desks in parallel with staggered citations =====
+  /* ----------------------------------------------------------- */
+  /* Run diligence: POST /api/run, pipe SSE into reducer         */
+  /* ----------------------------------------------------------- */
+
   const runDiligence = () => {
     if (mode !== "ready") return;
-    setRunState((s) => ({
-      ...s,
-      mode: "running",
-      runStart: Date.now(),
-      deskStates: Array(6).fill("streaming") as DeskState[],
-      citesShown: Array(6).fill(0),
-    }));
 
-    const desks = fixture.desks;
+    // Optimistic transition; run.init from the backend will refine ids.
+    dispatch({ type: "RUN_REQUESTED" });
 
-    desks.forEach((desk, i) => {
-      const totalCites = desk.cites.length;
-      const resolveAt = desk.delay * SCALE;
-      const citeStart = 800;
-      const citeGap =
-        (resolveAt - citeStart - 400) / Math.max(totalCites, 1);
-
-      desk.cites.forEach((_, ci) => {
-        setTimeout(() => {
-          setRunState((s) => {
-            const cs = [...s.citesShown];
-            cs[i] = ci + 1;
-            return { ...s, citesShown: cs };
-          });
-        }, citeStart + ci * Math.max(citeGap, 200));
-      });
-
-      setTimeout(() => {
-        setRunState((s) => {
-          const ds = [...s.deskStates];
-          ds[i] = desk.status;
-          const cs = [...s.citesShown];
-          cs[i] = totalCites;
-
-          const allResolved = ds.every(
-            (d) => d === "pass" || d === "flag" || d === "block",
-          );
-          if (allResolved) {
-            // schedule transition to "resolved" and BEC modal pop
-            setTimeout(
-              () => setRunState((ss) => ({ ...ss, mode: "resolved" })),
-              200,
-            );
-            if (scenario === "bec") {
-              setTimeout(() => setShowBlockModal(true), 600);
-            }
-          }
-          return { ...s, deskStates: ds, citesShown: cs };
-        });
-      }, resolveAt);
-    });
+    const fixtureSeed = scenario === "clean" ? "clean-acme" : "bec-acme";
+    const { abort } = startRun(
+      {
+        prompt,
+        files: files.map(({ name, mime, size, ref }) => ({ name, mime, size, ref })),
+        fixtureSeed,
+      },
+      (event) => dispatch({ type: "APPLY_EVENT", event }),
+    );
+    abortRef.current = abort;
   };
 
-  // ===== Verdict for the bottom bar =====
-  const verdict: VerdictKind =
-    mode === "idle" || mode === "typing" || mode === "ready"
-      ? "pre"
-      : mode === "running"
-      ? "running"
-      : deskStates.includes("block")
-      ? "block"
-      : "pass";
+  // Cancel SSE on unmount.
+  useEffect(() => () => abortRef.current?.(), []);
+
+  // Side effects: publish runId/verdict upward; trigger BLOCK modal on hold.
+  useEffect(() => {
+    publishRunId(state.runId);
+  }, [state.runId, publishRunId]);
+
+  useEffect(() => {
+    publishVerdict(state.verdict?.action ?? null);
+    if (!state.verdict) return;
+    if (state.verdict.action === "hold") {
+      blockModalTimerRef.current = window.setTimeout(
+        () => setShowBlockModal(true),
+        600,
+      );
+      return () => {
+        if (blockModalTimerRef.current != null) {
+          window.clearTimeout(blockModalTimerRef.current);
+        }
+      };
+    }
+  }, [state.verdict, publishVerdict]);
+
+  // Surface run-level errors via toast.
+  const errCount = state.errors.length;
+  useEffect(() => {
+    if (errCount === 0) return;
+    const last = state.errors[errCount - 1];
+    if (!last.desk) {
+      setToast(`run failed · ${last.message}`);
+      window.setTimeout(() => setToast(""), 2400);
+    }
+  }, [errCount, state.errors, setToast]);
+
+  /* ----------------------------------------------------------- */
+  /* Header / metadata                                            */
+  /* ----------------------------------------------------------- */
+
+  const headerRunId = runId ?? "—";
+  const headerStartedAt = startedAt ?? "—";
+  const headerMandateVersion = mandateVersion != null ? `v ${mandateVersion}` : "v —";
+  const headerFundId = fundId ?? "—";
+
+  const copyRunId = () => {
+    if (!runId) return;
+    navigator.clipboard?.writeText(runId);
+    setToast(`copied · ${runId}`);
+    window.setTimeout(() => setToast(""), 1400);
+  };
 
   return (
     <div
@@ -187,27 +192,24 @@ export function RunScreen({
           className="mono"
           style={{
             color: "var(--ink-secondary)",
-            cursor: "pointer",
+            cursor: runId ? "pointer" : "default",
             padding: 0,
             background: "none",
             border: "none",
             fontSize: 11,
+            opacity: runId ? 1 : 0.5,
           }}
-          onClick={() => {
-            navigator.clipboard?.writeText("8a3f29c1");
-            setToast("copied · 8a3f29c1");
-            setTimeout(() => setToast(""), 1400);
-          }}
-          title="copy run id"
+          onClick={copyRunId}
+          title={runId ? "copy run id" : ""}
         >
-          8a3f29c1
+          {headerRunId}
         </button>
         <span>·</span>
-        <span>2026-04-30T16:42:18Z</span>
+        <span>{headerStartedAt}</span>
         <span>·</span>
-        <span>MANDATE v 12</span>
+        <span>MANDATE {headerMandateVersion}</span>
         <span>·</span>
-        <span>acme-ventures-iii</span>
+        <span>{headerFundId}</span>
       </div>
 
       {/* PROMPT ZONE */}
@@ -223,7 +225,7 @@ export function RunScreen({
             <textarea
               value={prompt}
               onChange={(e) =>
-                setRunState((s) => ({ ...s, prompt: e.target.value }))
+                dispatch({ type: "PROMPT_EDIT", text: e.target.value })
               }
               placeholder={
                 "e.g. Wire $2M to Acme Robotics for their Series A. Lead is Sequoia.\n50% pro-rata of our $4M allocation. SPA and wire instructions attached."
@@ -260,7 +262,7 @@ export function RunScreen({
               >
                 {files.map((f, i) => (
                   <span
-                    key={i}
+                    key={`${f.ref}-${i}`}
                     className="fade-up"
                     style={{
                       display: "inline-flex",
@@ -277,16 +279,11 @@ export function RunScreen({
                     <Icon name={f.icon} size={12} />
                     <span>{f.name}</span>
                     <span style={{ color: "var(--ink-tertiary)" }}>
-                      · {f.size}
+                      · {f.sizeLabel}
                     </span>
                     <button
                       type="button"
-                      onClick={() =>
-                        setRunState((s) => ({
-                          ...s,
-                          files: s.files.filter((_, idx) => idx !== i),
-                        }))
-                      }
+                      onClick={() => dispatch({ type: "FILE_REMOVED", index: i })}
                       style={{
                         color: "var(--ink-tertiary)",
                         display: "inline-flex",
@@ -371,18 +368,20 @@ export function RunScreen({
             gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
           }}
         >
-          {fixture.desks.map((desk, i) => (
+          {DESK_ORDER.map((id, i) => (
             <div
-              key={i}
+              key={id}
               style={{
                 animation: `fade-up 200ms ease-out ${i * 60}ms backwards`,
               }}
             >
               <DeskTile
-                desk={desk}
-                state={deskStates[i]}
-                citesShown={deskStates[i] === "idle" ? 0 : citesShown[i]}
-                onClick={() => setDrawer(i)}
+                deskId={id}
+                meta={DESK_META[id]}
+                state={state.deskStates[id]}
+                finding={state.findings[id]}
+                progressMessage={state.progressMessages[id]}
+                onClick={() => setDrawer(id)}
               />
             </div>
           ))}
@@ -390,29 +389,35 @@ export function RunScreen({
       </div>
 
       <VerdictBar
-        kind={verdict}
+        mode={mode}
+        verdict={state.verdict}
         resolvedCount={resolvedCount}
         totalElapsed={totalElapsed}
         go={go}
-        setShowBlockModal={setShowBlockModal}
+        onOpenBlockModal={() => setShowBlockModal(true)}
       />
 
       {drawer !== null && (
         <DeskDrawer
-          desk={fixture.desks[drawer]}
-          state={deskStates[drawer]}
+          deskId={drawer}
+          meta={DESK_META[drawer]}
+          state={state.deskStates[drawer]}
+          finding={state.findings[drawer]}
           onClose={() => setDrawer(null)}
         />
       )}
 
-      {showBlockModal && !showAmendPR && (
+      {showBlockModal && !showAmendPR && state.verdict && (
         <BlockModal
+          verdict={state.verdict}
+          findings={state.findings}
           onClose={() => setShowBlockModal(false)}
           onAmend={() => setShowAmendPR(true)}
         />
       )}
-      {showAmendPR && (
+      {showAmendPR && state.verdict && state.runId && (
         <AmendmentPR
+          override={buildOverrideContext(state.runId, state.verdict, state.findings)}
           nextId={nextAmendmentId}
           onCancel={() => setShowAmendPR(false)}
           onApprove={(a) => {
@@ -420,12 +425,34 @@ export function RunScreen({
             setShowAmendPR(false);
             setShowBlockModal(false);
             setToast(`amendment merged · MANDATE v ${a.id - 1}`);
-            setTimeout(() => setToast(""), 1800);
+            window.setTimeout(() => setToast(""), 1800);
           }}
         />
       )}
     </div>
   );
+}
+
+/* --------------------------------------------------------------- */
+/* Helpers                                                         */
+/* --------------------------------------------------------------- */
+
+function buildOverrideContext(
+  runId: string,
+  verdict: NonNullable<ReturnType<typeof runReducer>["verdict"]>,
+  findings: ReturnType<typeof runReducer>["findings"],
+): OverrideContext {
+  // Pull the clause from the blocking desk's mandate citation if present;
+  // fall back to the verdict's blockingReason text.
+  const blockingDesk = verdict.blockingDesk ?? "wire";
+  const finding = findings[blockingDesk];
+  const mandateCite = finding?.citations.find((c) => c.source === "mandate");
+  return {
+    runId,
+    blockingDesk,
+    blockingReason: verdict.blockingReason ?? verdict.summary,
+    clause: mandateCite?.ref ?? "wire_safety §6.2",
+  };
 }
 
 function ScenarioButton({

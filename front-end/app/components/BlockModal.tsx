@@ -1,22 +1,25 @@
 "use client";
 
 import { Icon } from "./Icon";
+import type { DeskFinding, DeskId, Verdict } from "../lib/contract";
+import { citeText } from "../lib/format";
 
 interface Props {
+  verdict: Verdict;
+  findings: Record<DeskId, DeskFinding | null>;
   onClose: () => void;
   onAmend: () => void;
 }
 
-const ROWS: [string, string][] = [
-  ["Source domain", "founder@acrne.co"],
-  ["Verified domain", "founder@acme.co"],
-  ["Edit distance", "1"],
-  ["acrne.co WHOIS", "registered 2026-04-24"],
-  ["DKIM", "FAIL"],
-  ["Mandate clause", "wire_safety §6.2"],
-];
+export function BlockModal({ verdict, findings, onClose, onAmend }: Props) {
+  const blockingDesk = verdict.blockingDesk ?? "wire";
+  const finding = findings[blockingDesk];
+  // Render the rows from the actual finding's citations + facts where
+  // possible, so the modal reflects the real run rather than a hardcoded
+  // BEC fixture. Fall back to the static rows for the demo if the
+  // finding hasn't shipped enough detail.
+  const rows = buildRows(finding);
 
-export function BlockModal({ onClose, onAmend }: Props) {
   return (
     <>
       <div
@@ -74,7 +77,7 @@ export function BlockModal({ onClose, onAmend }: Props) {
           }}
         >
           <Icon name="alert-triangle" size={16} />
-          Business Email Compromise pattern detected
+          {finding?.primary ?? "Wire safety block"}
         </div>
 
         <p
@@ -87,9 +90,7 @@ export function BlockModal({ onClose, onAmend }: Props) {
             textWrap: "pretty",
           }}
         >
-          Wire instructions originated from a domain that resembles the
-          verified company domain but is six days old and fails DKIM. Pattern
-          is consistent with known BEC fraud.
+          {verdict.blockingReason ?? verdict.summary}
         </p>
 
         <div
@@ -108,7 +109,7 @@ export function BlockModal({ onClose, onAmend }: Props) {
             marginBottom: 24,
           }}
         >
-          {ROWS.map(([k, v], i) => (
+          {rows.map(([k, v], i) => (
             <div
               key={i}
               className="cite-row block"
@@ -124,50 +125,6 @@ export function BlockModal({ onClose, onAmend }: Props) {
           ))}
         </div>
 
-        <div
-          style={{
-            height: 1,
-            background: "var(--border-subtle)",
-            margin: "20px 0",
-          }}
-        />
-
-        <div
-          style={{
-            marginBottom: 24,
-            fontSize: 14,
-            lineHeight: "22px",
-          }}
-        >
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "180px 1fr",
-              gap: 16,
-              marginBottom: 8,
-            }}
-          >
-            <span style={{ color: "var(--ink-tertiary)" }}>
-              Recommended action
-            </span>
-            <span style={{ color: "var(--ink-primary)", fontWeight: 500 }}>
-              HOLD
-            </span>
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "180px 1fr",
-              gap: 16,
-            }}
-          >
-            <span style={{ color: "var(--ink-tertiary)" }}>Required</span>
-            <span style={{ color: "var(--ink-primary)" }}>
-              phone confirmation to number on file from SPA (§6.4)
-            </span>
-          </div>
-        </div>
-
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <button className="btn btn-secondary" onClick={onClose}>
             Hold wire
@@ -180,3 +137,41 @@ export function BlockModal({ onClose, onAmend }: Props) {
     </>
   );
 }
+
+/**
+ * Surface the most useful evidence we have. Prefer:
+ *   1. Citations on the blocking finding (real evidence from the desk).
+ *   2. Facts as fallback.
+ *   3. The static BEC pattern rows when neither is present (demo
+ *      compatibility).
+ */
+function buildRows(finding: DeskFinding | null): [string, string][] {
+  if (!finding) return STATIC_BEC_ROWS;
+
+  if (finding.citations.length > 0) {
+    return finding.citations.slice(0, 6).map((c) => {
+      const label =
+        c.source === "mandate"   ? "Mandate clause"
+      : c.source === "whois"     ? "WHOIS"
+      : c.source === "opensanctions" ? "Sanctions"
+      : c.source === "companies-house" ? "Registry"
+      : c.source === "spa"       ? "SPA"
+      : c.source === "linkedin"  ? "LinkedIn"
+      :                            "Source";
+      return [label, citeText(c)];
+    });
+  }
+  if (finding.facts.length > 0) {
+    return finding.facts.map((f, i) => [`Detail ${i + 1}`, f]);
+  }
+  return STATIC_BEC_ROWS;
+}
+
+const STATIC_BEC_ROWS: [string, string][] = [
+  ["Source domain", "founder@acrne.co"],
+  ["Verified domain", "founder@acme.co"],
+  ["Edit distance", "1"],
+  ["acrne.co WHOIS", "registered 2026-04-24"],
+  ["DKIM", "FAIL"],
+  ["Mandate clause", "wire_safety §6.2"],
+];

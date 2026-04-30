@@ -1,21 +1,11 @@
 /**
- * Mandate app — shared state types.
+ * FE-local types that don't live on the backend contract.
  *
- * Centralised on the App shell (page.tsx):
- *   - theme       : dark | light
- *   - route       : which screen is showing
- *   - amendments  : the PR/amendment log (read by Mandate; mutated by both
- *                   the Mandate "New PR" flow and the Run "Override and amend"
- *                   flow)
- *   - runState    : everything about the current Diligence Run; read by Memo
- *                   so the verdict reflects whichever scenario was last run
- *   - toast       : transient bottom-center message
- *
- * Anything purely about how a single component looks (which diff is open,
- * whether a modal is showing) stays local to that component.
+ * Everything that crosses the wire (DeskFinding, Citation, Verdict,
+ * RunEvent, MemoData, OverrideContext, AmendmentDraft) is in
+ * `app/lib/contract.ts`. This file only holds shapes that stay inside
+ * the FE.
  */
-
-import type { IconName } from "../components/Icon";
 
 export type Theme = "dark" | "light";
 export type Route = "mandate" | "run" | "memo";
@@ -26,6 +16,14 @@ export interface Attachment {
   icon: "file-text" | "mail";
 }
 
+/**
+ * The Mandate-screen amendment-log item.
+ *
+ * The backend doesn't expose a list of amendments — the FE keeps this
+ * array in memory for the session (seeded from `INITIAL_AMENDMENTS` in
+ * `state/initial.ts`, mutated by either the Mandate "New PR" modal or
+ * the Run "Override and amend" flow).
+ */
 export interface Amendment {
   id: number;
   date: string;
@@ -36,52 +34,6 @@ export interface Amendment {
   active?: boolean;
   fresh?: boolean;
   attachments?: Attachment[];
-}
-
-/* ============== Run state ============== */
-
-export type RunMode = "idle" | "typing" | "ready" | "running" | "resolved";
-export type Scenario = "clean" | "bec";
-export type DeskState = "idle" | "streaming" | "pass" | "flag" | "block";
-
-export type CiteSource =
-  | "specter" | "ch" | "sanctions" | "whois" | "mandate" | "block";
-
-export interface Cite {
-  src: CiteSource;
-  text: string;
-  link?: boolean;
-}
-
-export interface Desk {
-  n: string;        // "01" .. "06"
-  name: string;
-  icon: IconName;
-  primary: string;
-  facts: string;
-  cites: Cite[];
-  conf: string;     // "0.94"
-  dur: string;      // "4.2s"
-  delay: number;    // ms after start of run that this desk resolves (full-scale)
-  status: "pass" | "flag" | "block";
-}
-
-export interface ScenarioFixture {
-  desks: Desk[];
-}
-
-export interface PromptFile {
-  name: string;
-  size: string;
-  icon: "file-text" | "mail";
-}
-
-export interface RunState {
-  mode: RunMode;
-  scenario: Scenario | null;
-  prompt: string;
-  files: PromptFile[];
-  deskStates: DeskState[];
-  citesShown: number[];
-  runStart: number | null;
+  /** Populated when the amendment came from a real backend draft. */
+  prUrl?: string;
 }

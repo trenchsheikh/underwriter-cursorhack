@@ -3,16 +3,33 @@
 import { useEffect, useState } from "react";
 import { Icon } from "./Icon";
 import { useElapsed } from "./useElapsed";
-import type { Desk, DeskState } from "../state/types";
+import type { DeskFinding, DeskId, Status } from "../lib/contract";
+import type { DeskMeta } from "../lib/deskMeta";
+import { citeCssClass } from "../lib/citeColor";
+import {
+  citeHasLink,
+  citeText,
+  formatConfidence,
+  formatDuration,
+} from "../lib/format";
 
 interface Props {
-  desk: Desk;
-  state: DeskState;
-  citesShown: number;
+  deskId: DeskId;
+  meta: DeskMeta;
+  state: Status;
+  finding: DeskFinding | null;
+  progressMessage?: string;
   onClick: () => void;
 }
 
-export function DeskTile({ desk, state, citesShown, onClick }: Props) {
+export function DeskTile({
+  deskId: _deskId,
+  meta,
+  state,
+  finding,
+  progressMessage,
+  onClick,
+}: Props) {
   const [flashed, setFlashed] = useState(false);
   useEffect(() => {
     if (state === "pass" || state === "flag" || state === "block") {
@@ -25,6 +42,12 @@ export function DeskTile({ desk, state, citesShown, onClick }: Props) {
   const isResolved = state === "pass" || state === "flag" || state === "block";
   const isBlock = state === "block";
   const elapsed = useElapsed(state === "streaming");
+
+  const citations = finding?.citations ?? [];
+  const factsLine =
+    finding?.facts && finding.facts.length > 0
+      ? finding.facts.join(" · ")
+      : "";
 
   const footerStatus =
     state === "idle" ? (
@@ -39,7 +62,7 @@ export function DeskTile({ desk, state, citesShown, onClick }: Props) {
         }}
       >
         <span className="dot live pulse" />
-        <span>searching · {elapsed}s</span>
+        <span>{progressMessage ?? `searching · ${elapsed}s`}</span>
       </span>
     ) : state === "pass" ? (
       <span
@@ -113,7 +136,7 @@ export function DeskTile({ desk, state, citesShown, onClick }: Props) {
           className="mono"
           style={{ fontSize: 11, color: "var(--ink-tertiary)" }}
         >
-          [{desk.n}]
+          [{meta.number}]
         </span>
         <span
           style={{
@@ -125,10 +148,10 @@ export function DeskTile({ desk, state, citesShown, onClick }: Props) {
             flex: 1,
           }}
         >
-          {desk.name}
+          {meta.title}
         </span>
         <span style={{ color: "var(--ink-tertiary)", display: "inline-flex" }}>
-          <Icon name={desk.icon} size={16} />
+          <Icon name={meta.icon} size={16} />
         </span>
 
         {state === "streaming" && (
@@ -160,7 +183,7 @@ export function DeskTile({ desk, state, citesShown, onClick }: Props) {
           padding: 16,
           flex: 1,
           opacity:
-            state === "idle" ? 0.3 : state === "streaming" ? 0.7 : 1,
+            state === "idle" ? 0.3 : state === "streaming" && !finding ? 0.7 : 1,
           transition: "opacity 200ms ease",
         }}
       >
@@ -174,27 +197,29 @@ export function DeskTile({ desk, state, citesShown, onClick }: Props) {
             textWrap: "pretty",
           }}
         >
-          {desk.primary}
+          {finding?.primary ?? (state === "idle" ? "" : "…")}
         </div>
-        <div
-          style={{
-            fontSize: 12,
-            color: "var(--ink-secondary)",
-            marginBottom: 12,
-            lineHeight: "18px",
-            textWrap: "pretty",
-          }}
-        >
-          {desk.facts}
-        </div>
+        {factsLine && (
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--ink-secondary)",
+              marginBottom: 12,
+              lineHeight: "18px",
+              textWrap: "pretty",
+            }}
+          >
+            {factsLine}
+          </div>
+        )}
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          {desk.cites.slice(0, citesShown).map((c, i) => (
+          {citations.map((c, i) => (
             <div
               key={i}
-              className={`cite-row ${c.src} fade-up`}
+              className={`cite-row ${citeCssClass(c.source)} fade-up`}
             >
-              <span>{c.text}</span>
-              {c.link && (
+              <span>{citeText(c)}</span>
+              {citeHasLink(c) && (
                 <Icon name="external-link" size={11} className="ext-link" />
               )}
             </div>
@@ -215,7 +240,9 @@ export function DeskTile({ desk, state, citesShown, onClick }: Props) {
         }}
       >
         <span style={{ color: "var(--ink-tertiary)" }}>
-          {isResolved ? `conf ${desk.conf} · ${desk.dur}` : ""}
+          {isResolved && finding
+            ? `conf ${formatConfidence(finding.confidence)} · ${formatDuration(finding.durationMs)}`
+            : ""}
         </span>
         {footerStatus}
       </div>

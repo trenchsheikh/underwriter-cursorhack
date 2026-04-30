@@ -2,16 +2,24 @@
 
 import { useState } from "react";
 import { Icon } from "./Icon";
-import type { Desk, DeskState } from "../state/types";
+import type { DeskFinding, DeskId, Status } from "../lib/contract";
+import type { DeskMeta } from "../lib/deskMeta";
+import { citeCssClass } from "../lib/citeColor";
+import { citeText, formatDuration, formatConfidence } from "../lib/format";
 
 interface Props {
-  desk: Desk;
-  state: DeskState;
+  deskId: DeskId;
+  meta: DeskMeta;
+  state: Status;
+  finding: DeskFinding | null;
   onClose: () => void;
 }
 
-export function DeskDrawer({ desk, onClose }: Props) {
+export function DeskDrawer({ deskId: _deskId, meta, state, finding, onClose }: Props) {
   const [showRaw, setShowRaw] = useState(false);
+  const citations = finding?.citations ?? [];
+  const facts = finding?.facts ?? [];
+
   return (
     <>
       <div
@@ -51,7 +59,7 @@ export function DeskDrawer({ desk, onClose }: Props) {
             className="mono"
             style={{ fontSize: 11, color: "var(--ink-tertiary)" }}
           >
-            [{desk.n}] {desk.name.toUpperCase()}
+            [{meta.number}] {meta.title.toUpperCase()}
           </span>
           <button
             onClick={onClose}
@@ -69,19 +77,21 @@ export function DeskDrawer({ desk, onClose }: Props) {
             lineHeight: "24px",
           }}
         >
-          {desk.primary}
+          {finding?.primary ?? (state === "streaming" ? "…" : "—")}
         </div>
-        <div
-          style={{
-            fontSize: 14,
-            color: "var(--ink-secondary)",
-            marginBottom: 24,
-            lineHeight: "22px",
-            textWrap: "pretty",
-          }}
-        >
-          {desk.facts}
-        </div>
+        {facts.length > 0 && (
+          <div
+            style={{
+              fontSize: 14,
+              color: "var(--ink-secondary)",
+              marginBottom: 24,
+              lineHeight: "22px",
+              textWrap: "pretty",
+            }}
+          >
+            {facts.join(" · ")}
+          </div>
+        )}
 
         <div className="section-heading" style={{ marginBottom: 12 }}>
           Citations
@@ -94,38 +104,60 @@ export function DeskDrawer({ desk, onClose }: Props) {
             marginBottom: 24,
           }}
         >
-          {desk.cites.map((c, i) => (
-            <div key={i} className={`cite-row ${c.src}`}>
-              <span>{c.text}</span>
-              <Icon name="external-link" size={11} className="ext-link" />
+          {citations.map((c, i) => (
+            <div key={i} className={`cite-row ${citeCssClass(c.source)}`}>
+              <span>{citeText(c)}</span>
+              {c.url && (
+                <a
+                  href={c.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ext-link"
+                  style={{ display: "inline-flex" }}
+                >
+                  <Icon name="external-link" size={11} />
+                </a>
+              )}
+              {c.cached && (
+                <span
+                  className="mono"
+                  style={{
+                    fontSize: 9,
+                    color: "var(--ink-tertiary)",
+                    marginLeft: "auto",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                  }}
+                >
+                  cached
+                </span>
+              )}
             </div>
           ))}
         </div>
 
-        <div className="section-heading" style={{ marginBottom: 12 }}>
-          Timeline
-        </div>
-        <div
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 11,
-            color: "var(--ink-secondary)",
-            display: "flex",
-            flexDirection: "column",
-            gap: 6,
-            marginBottom: 24,
-          }}
-        >
-          <div>00.00s · desk dispatched</div>
-          {desk.cites.map((c, i) => (
-            <div key={i}>
-              {(0.6 + i * 0.9).toFixed(2)}s · citation arrived · {c.src}
+        {finding && (
+          <>
+            <div className="section-heading" style={{ marginBottom: 12 }}>
+              Outcome
             </div>
-          ))}
-          <div>
-            {desk.dur} · resolved · {desk.status.toUpperCase()}
-          </div>
-        </div>
+            <div
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                color: "var(--ink-secondary)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                marginBottom: 24,
+              }}
+            >
+              <div>status · {finding.status.toUpperCase()}</div>
+              <div>confidence · {formatConfidence(finding.confidence)}</div>
+              <div>duration · {formatDuration(finding.durationMs)}</div>
+            </div>
+          </>
+        )}
 
         <button
           onClick={() => setShowRaw((s) => !s)}
@@ -134,7 +166,7 @@ export function DeskDrawer({ desk, onClose }: Props) {
         >
           {showRaw ? "▾ hide raw response" : "▸ show raw response"}
         </button>
-        {showRaw && (
+        {showRaw && finding && (
           <pre
             style={{
               background: "var(--surface-3)",
@@ -148,20 +180,7 @@ export function DeskDrawer({ desk, onClose }: Props) {
               whiteSpace: "pre-wrap",
             }}
           >
-            {JSON.stringify(
-              {
-                desk: desk.n,
-                name: desk.name,
-                status: desk.status,
-                confidence: parseFloat(desk.conf),
-                duration_s: parseFloat(desk.dur),
-                primary: desk.primary,
-                facts: desk.facts,
-                citations: desk.cites,
-              },
-              null,
-              2,
-            )}
+            {JSON.stringify(finding.raw ?? finding, null, 2)}
           </pre>
         )}
       </aside>

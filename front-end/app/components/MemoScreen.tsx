@@ -1,11 +1,14 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { Icon } from "./Icon";
-import type { Route, RunState } from "../state/types";
+import type { DeskFinding, MemoData } from "../lib/contract";
+import type { Route } from "../state/types";
+import { getMemo } from "../lib/memo";
+import { DESK_META, DESK_ORDER } from "../lib/deskMeta";
 
 interface Props {
-  runState: RunState;
+  runId: string | null;
   go: (r: Route) => void;
 }
 
@@ -19,93 +22,147 @@ const memoH2: CSSProperties = {
   marginBottom: 12,
 };
 
-export function MemoScreen({ runState, go }: Props) {
-  const isBlock =
-    runState.scenario === "bec" && runState.deskStates.includes("block");
+type Stage =
+  | { kind: "idle" }                       // no runId yet
+  | { kind: "loading" }
+  | { kind: "loaded"; memo: MemoData }
+  | { kind: "error"; message: string };
 
-  const stamp = isBlock
-    ? { label: "✕ HOLD", color: "var(--paper-stamp-block)" }
-    : { label: "✓ PROCEED", color: "var(--paper-stamp-pass)" };
+export function MemoScreen({ runId, go }: Props) {
+  const [stage, setStage] = useState<Stage>(
+    runId ? { kind: "loading" } : { kind: "idle" },
+  );
 
-  const summary = isBlock
-    ? "Acme Robotics Series A is within the fund's mandate and round terms are sound, but the wire instructions originated from a domain registered six days ago that resembles the verified company domain by a single character and fails DKIM. Recommendation: hold and confirm out-of-band before any wire is released."
-    : "Acme Robotics Series A is within the fund's mandate, lead investor is verified active, round terms reconcile to the SPA, and wire instructions pass all integrity checks. Recommendation: proceed.";
+  useEffect(() => {
+    if (!runId) {
+      setStage({ kind: "idle" });
+      return;
+    }
+    setStage({ kind: "loading" });
+    const ac = new AbortController();
+    getMemo(runId, ac.signal)
+      .then((memo) => setStage({ kind: "loaded", memo }))
+      .catch((err: Error) => {
+        if (ac.signal.aborted) return;
+        setStage({ kind: "error", message: err.message });
+      });
+    return () => ac.abort();
+  }, [runId]);
 
-  const recommendation = isBlock
-    ? "Hold the wire. Phone-confirm the receiving account directly to the number on file from the SPA before any release."
-    : "Proceed with the $2,000,000 wire to Acme Robotics Ltd, Series A, at the agreed pro-rata of 50% of allocation.";
+  if (stage.kind === "idle") {
+    return (
+      <MemoEmpty
+        title="No run selected"
+        body="Run a diligence on the Diligence screen to generate an IC memo."
+        go={go}
+      />
+    );
+  }
+  if (stage.kind === "loading") {
+    return <MemoLoading />;
+  }
+  if (stage.kind === "error") {
+    return (
+      <MemoEmpty
+        title="Memo unavailable"
+        body={stage.message}
+        go={go}
+      />
+    );
+  }
 
-  const requiredActions = isBlock
-    ? [
-        "Place wire on hold pending out-of-band confirmation.",
-        "Contact founder via phone number from SPA §6.4 to verify receiving account.",
-        "Merge amendment PR to add acrne.co to the blocklist and require phone confirmation above $1M.",
-        "Re-run diligence with confirmed wire instructions before release.",
-      ]
-    : [
-        "Counter-sign SPA per signing matrix (2 signers, tier 2).",
-        "Release wire of $2,000,000 to verified acme.co receiving account.",
-        'Record close in portfolio register; tag company "acme-robotics" cohort 2026-Q2.',
-        "Schedule first board observer meeting within 30 days.",
-      ];
+  return <MemoBody memo={stage.memo} go={go} />;
+}
 
-  const rules: [string, "PASS" | "FAIL"][] = [
-    ["Sector permitted (robotics)", "PASS"],
-    ["Geography permitted (UK)", "PASS"],
-    ["Cheque size within tier 2 ($500K–$5M)", "PASS"],
-    ["Pro-rata reserves consistent", "PASS"],
-    ["Founder background verified", "PASS"],
-    ["Lead investor confirmed", "PASS"],
-    ["Wire integrity", isBlock ? "FAIL" : "PASS"],
-    ["Sanctions screen", "PASS"],
-  ];
+/* ---------------------- shells ---------------------- */
 
-  const findings = [
-    {
-      n: "§1",
-      name: "Company",
-      text: "Acme Robotics Ltd, incorporated 2021 in Cambridge, UK. 47 FTE. Active filings current to 2026-Q1.",
-      cite: "Specter ABC-92 · Companies House 13427891",
-    },
-    {
-      n: "§2",
-      name: "Founder",
-      text: "Sarah Chen, CEO and co-founder, ex-Boston Dynamics and DeepMind robotics. One prior exit (Cobalt Robotics → ABB, 2019).",
-      cite: "Specter People P-441829 · LinkedIn verified",
-    },
-    {
-      n: "§3",
-      name: "Lead investor",
-      text: "Sequoia Capital. Four partner-level engagement signals in the last 60 days; pattern consistent with lead in EU robotics sector.",
-      cite: "Specter Interest Signals · 11 comparable lead rounds",
-    },
-    {
-      n: "§4",
-      name: "Round dynamics",
-      text: "Series A at $18M on $80M post-money. Within EU robotics 2025 medians ($16M @ $74M). Pro-rata reconciles: $2M = 50% of $4M allocation.",
-      cite: "Specter Transactions n=23 · SPA §3.1",
-    },
-    {
-      n: "§5",
-      name: "Mandate",
-      text: "8 of 8 rules pass. Within signing matrix tier 2 (two signers). Sector and geography permitted under v12 of the mandate.",
-      cite: "MANDATE.md v12 · clauses 2,3,4,5",
-    },
-    isBlock
-      ? {
-          n: "§6",
-          name: "Wire safety",
-          text: "BLOCK. Wire instructions originated from acrne.co, registered 2026-04-24 (six days old), edit distance 1 from verified domain acme.co. DKIM fails. Pattern consistent with BEC.",
-          cite: "WHOIS 2026-04-24 · wire_safety §6.2",
-          block: true,
-        }
-      : {
-          n: "§6",
-          name: "Wire safety",
-          text: "Domain acme.co, age 1,847 days. DKIM, SPF and beneficial-owner match all clear. No sanctions or PEP hits across four lists.",
-          cite: "WHOIS 2021-01-15 · OpenSanctions clear",
-        },
-  ];
+function MemoEmpty({
+  title,
+  body,
+  go,
+}: {
+  title: string;
+  body: string;
+  go: (r: Route) => void;
+}) {
+  return (
+    <div
+      style={{
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 12,
+        padding: 32,
+        background: "var(--paper)",
+        color: "var(--paper-ink)",
+      }}
+    >
+      <div
+        style={{
+          fontFamily: "var(--font-display)",
+          fontStyle: "italic",
+          fontSize: 28,
+        }}
+      >
+        {title}
+      </div>
+      <div
+        style={{
+          color: "var(--paper-muted)",
+          maxWidth: 480,
+          textAlign: "center",
+        }}
+      >
+        {body}
+      </div>
+      <button
+        className="btn btn-secondary"
+        onClick={() => go("run")}
+        style={{ marginTop: 16 }}
+      >
+        Go to Diligence <Icon name="arrow-right" size={14} />
+      </button>
+    </div>
+  );
+}
+
+function MemoLoading() {
+  return (
+    <div
+      style={{
+        height: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "var(--paper)",
+        color: "var(--paper-muted)",
+        fontFamily: "var(--font-mono)",
+        fontSize: 13,
+        gap: 10,
+      }}
+    >
+      <span className="dot live pulse" />
+      Loading memo
+    </div>
+  );
+}
+
+/* ---------------------- body ---------------------- */
+
+function MemoBody({ memo, go }: { memo: MemoData; go: (r: Route) => void }) {
+  const stamp = stampFor(memo.verdict.action);
+
+  // Compliance table: derive per-desk row from findings.
+  const findingByDesk: Record<string, DeskFinding | undefined> = {};
+  for (const f of memo.findings) findingByDesk[f.desk] = f;
+  const complianceRows = DESK_ORDER.map((id) => {
+    const f = findingByDesk[id];
+    const label = DESK_META[id].title;
+    const status = f?.status ?? "—";
+    return [label, status.toUpperCase()] as const;
+  });
 
   return (
     <div style={{ height: "100vh", overflow: "auto", background: "var(--paper)" }}>
@@ -186,15 +243,15 @@ export function MemoScreen({ runState, go }: Props) {
           }}
         >
           <div>
-            <div>Acme Ventures III</div>
+            <div>{memo.fund.name}</div>
             <div style={{ color: "var(--paper-muted)" }}>
               Investment Committee Memo
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div>Run 8a3f29c1</div>
+            <div>Run {memo.runId}</div>
             <div style={{ color: "var(--paper-muted)" }}>
-              2026-04-30 16:42 UTC
+              {memo.generatedAt}
             </div>
           </div>
         </div>
@@ -220,7 +277,7 @@ export function MemoScreen({ runState, go }: Props) {
                 marginBottom: 8,
               }}
             >
-              <span style={{ fontStyle: "italic" }}>Acme Robotics Ltd</span>
+              <span style={{ fontStyle: "italic" }}>{memo.deal.company}</span>
             </h1>
             <div
               style={{
@@ -229,7 +286,8 @@ export function MemoScreen({ runState, go }: Props) {
                 color: "var(--paper-muted)",
               }}
             >
-              Series A · $2,000,000 · 50% pro-rata
+              {memo.deal.round} · ${memo.deal.amountUsd.toLocaleString()}
+              {memo.deal.proRataPct != null && ` · ${memo.deal.proRataPct}% pro-rata`}
             </div>
           </div>
           <div
@@ -266,7 +324,7 @@ export function MemoScreen({ runState, go }: Props) {
             textWrap: "pretty",
           }}
         >
-          {summary}
+          {memo.summary}
         </p>
 
         {/* Mandate compliance */}
@@ -281,7 +339,7 @@ export function MemoScreen({ runState, go }: Props) {
           }}
         >
           <tbody>
-            {rules.map(([rule, status], i) => (
+            {complianceRows.map(([rule, status], i) => (
               <tr
                 key={i}
                 style={{ borderBottom: "1px solid rgba(26,23,21,0.08)" }}
@@ -295,10 +353,7 @@ export function MemoScreen({ runState, go }: Props) {
                     textAlign: "right",
                     fontFamily: "var(--font-mono)",
                     fontSize: 11,
-                    color:
-                      status === "PASS"
-                        ? "var(--paper-stamp-pass)"
-                        : "var(--paper-stamp-block)",
+                    color: complianceColor(status),
                   }}
                 >
                   {status}
@@ -310,7 +365,7 @@ export function MemoScreen({ runState, go }: Props) {
 
         {/* Findings */}
         <h2 style={memoH2}>Findings by desk</h2>
-        {findings.map((f, i) => (
+        {memo.findings.map((f, i) => (
           <div key={i} style={{ marginBottom: 24 }}>
             <div
               style={{
@@ -322,28 +377,34 @@ export function MemoScreen({ runState, go }: Props) {
                 marginBottom: 4,
               }}
             >
-              {f.n} {f.name}
+              {f.number} {DESK_META[f.desk].title}
             </div>
             <p
               style={{
                 marginBottom: 6,
-                color: "block" in f && f.block
-                  ? "var(--paper-stamp-block)"
-                  : "var(--paper-ink)",
+                color:
+                  f.status === "block"
+                    ? "var(--paper-stamp-block)"
+                    : "var(--paper-ink)",
                 textWrap: "pretty",
               }}
             >
-              {f.text}
+              {f.primary}
+              {f.facts.length > 0 && ` — ${f.facts.join(" · ")}`}
             </p>
-            <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 10,
-                color: "var(--paper-muted)",
-              }}
-            >
-              {f.cite}
-            </div>
+            {f.citations.length > 0 && (
+              <div
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10,
+                  color: "var(--paper-muted)",
+                }}
+              >
+                {f.citations
+                  .map((c) => `${c.source}: ${c.detail ?? c.ref}`)
+                  .join(" · ")}
+              </div>
+            )}
           </div>
         ))}
 
@@ -376,14 +437,14 @@ export function MemoScreen({ runState, go }: Props) {
               textWrap: "pretty",
             }}
           >
-            {recommendation}
+            {memo.recommendation}
           </p>
         </div>
 
         {/* Required actions */}
         <h2 style={memoH2}>Required actions</h2>
         <ol style={{ paddingLeft: 20, marginBottom: 56 }}>
-          {requiredActions.map((a, i) => (
+          {memo.requiredActions.map((a, i) => (
             <li
               key={i}
               style={{
@@ -407,9 +468,36 @@ export function MemoScreen({ runState, go }: Props) {
             borderTop: "1px solid var(--paper-rule)",
           }}
         >
-          Generated by Mandate · Cursor SDK · Specter · 2026-04-30 16:42:18 UTC
+          Generated by Mandate · Cursor SDK · Specter · {memo.generatedAt}
         </div>
       </article>
     </div>
   );
+}
+
+function stampFor(action: MemoData["verdict"]["action"]): {
+  label: string;
+  color: string;
+} {
+  switch (action) {
+    case "proceed":
+      return { label: "✓ PROCEED", color: "var(--paper-stamp-pass)" };
+    case "review":
+      return { label: "⚠ REVIEW", color: "var(--paper-stamp-flag)" };
+    case "hold":
+      return { label: "✕ HOLD", color: "var(--paper-stamp-block)" };
+  }
+}
+
+function complianceColor(status: string): string {
+  switch (status) {
+    case "PASS":
+      return "var(--paper-stamp-pass)";
+    case "FLAG":
+      return "var(--paper-stamp-flag)";
+    case "BLOCK":
+      return "var(--paper-stamp-block)";
+    default:
+      return "var(--paper-muted)";
+  }
 }

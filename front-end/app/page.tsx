@@ -1,50 +1,64 @@
 "use client";
 
 /**
- * App shell for the Mandate prototype.
+ * App shell.
  *
- * Centralised state — all three screens read from / write to it:
- *   - route       : which tab in the rail is active
- *   - theme       : dark | light, mirrored to <html data-theme>
- *   - amendments  : PR/amendment log; mutated by Mandate's Create-PR modal
- *                   AND by the Run screen's "Override and amend" flow
- *   - runState    : everything about the current diligence run; Memo reads
- *                   it to decide PROCEED vs HOLD
- *   - toast       : transient bottom-center message
+ * Centralised state:
+ *   - route, theme, toast — UI
+ *   - amendments + mergeAmendment — shared by Mandate "New PR" modal
+ *     and Run "Override and amend" flow
+ *   - runId, verdictAction — published up by RunScreen so MemoScreen
+ *     can fetch the right /api/memo/[runId] when the user navigates
  *
- * Per-screen UI state (which diff is expanded, which modal is open) lives
- * inside the screen component.
+ * Backend reachability is probed once on mount; if the probe fails we
+ * gate the whole app behind an unreachable overlay.
  */
 
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { LeftRail } from "./components/LeftRail";
 import { MandateScreen } from "./components/MandateScreen";
 import { RunScreen } from "./components/RunScreen";
 import { MemoScreen } from "./components/MemoScreen";
 import { Toast } from "./components/Toast";
+import { BackendUnreachable } from "./components/BackendUnreachable";
 import { INITIAL_AMENDMENTS } from "./state/initial";
-import { INITIAL_RUN_STATE } from "./state/fixtures";
-import type { Amendment, Route, RunState, Theme } from "./state/types";
+import type { Amendment, Route, Theme } from "./state/types";
+import { probeBackend } from "./lib/api";
+
+type ProbeStage =
+  | { kind: "checking" }
+  | { kind: "ok" }
+  | { kind: "down" };
 
 export default function App() {
   const [route, setRoute] = useState<Route>("mandate");
   const [theme, setTheme] = useState<Theme>("dark");
   const [toast, setToast] = useState("");
   const [amendments, setAmendments] = useState<Amendment[]>(INITIAL_AMENDMENTS);
-  const [runState, setRunState] = useState<RunState>(INITIAL_RUN_STATE);
+  const [runId, setRunId] = useState<string | null>(null);
+  const [, setVerdictAction] = useState<"proceed" | "review" | "hold" | null>(
+    null,
+  );
+  const [probe, setProbe] = useState<ProbeStage>({ kind: "checking" });
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
 
-  const mandateVersion = amendments[0]?.id ? amendments[0].id - 2 : 12;
-  const nextAmendmentId =
-    Math.max(...amendments.map((a) => a.id), 0) + 1;
+  const runProbe = useCallback(() => {
+    setProbe({ kind: "checking" });
+    const ac = new AbortController();
+    probeBackend(ac.signal)
+      .then((ok) => setProbe(ok ? { kind: "ok" } : { kind: "down" }))
+      .catch(() => setProbe({ kind: "down" }));
+    return () => ac.abort();
+  }, []);
 
-  /**
-   * Push a fresh amendment onto the log. Used by both the Mandate "New PR"
-   * modal and the Run "Override and amend" flow, so it lives here.
-   */
+  useEffect(() => runProbe(), [runProbe]);
+
+  const mandateVersion = amendments[0]?.id ? amendments[0].id - 2 : 12;
+  const nextAmendmentId = Math.max(...amendments.map((a) => a.id), 0) + 1;
+
   const mergeAmendment = useCallback((a: Amendment) => {
     setAmendments((prev) => [
       { ...a, fresh: true },
@@ -78,19 +92,25 @@ export default function App() {
         )}
         {route === "run" && (
           <RunScreen
-            runState={runState}
-            setRunState={setRunState}
             go={setRoute}
             setToast={setToast}
             nextAmendmentId={nextAmendmentId}
             onMergeAmendment={mergeAmendment}
+            publishRunId={setRunId}
+            publishVerdict={setVerdictAction}
           />
         )}
         {route === "memo" && (
-          <MemoScreen runState={runState} go={setRoute} />
+          <MemoScreen runId={runId} go={setRoute} />
         )}
       </main>
       <Toast message={toast} />
+      {probe.kind !== "ok" && (
+        <BackendUnreachable
+          stage={probe.kind}
+          onRetry={runProbe}
+        />
+      )}
     </div>
   );
 }
