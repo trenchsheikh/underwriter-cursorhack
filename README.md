@@ -8,7 +8,7 @@ A FastAPI backend for a loan underwriting workflow: applicants, applications, do
 - **Applicants** — CRUD for applicants (KYC-style fields).
 - **Applications** — Loan applications tied to applicants with status lifecycle (`draft → submitted → in_review → decisioned`).
 - **Documents** — Upload, list, and remove supporting documents per application (multipart/form-data).
-- **Underwriting** — Rule-based risk scoring (deterministic, explainable). Optional OpenAI-assisted narrative when `OPENAI_API_KEY` is set; the LLM never changes the outcome.
+- **Underwriting** — Rule-based risk scoring (deterministic, explainable). Optional LLM-assisted narrative when `CURSOR_API_KEY` is set (any OpenAI-compatible endpoint); the LLM never changes the outcome.
 - **Decisions** — Persisted decisions with risk score, approved amount, APR, machine-readable reasons, and a human-readable narrative. Underwriter overrides supported.
 - **RBAC** — `admin`, `underwriter`, and `viewer` roles enforced on sensitive endpoints.
 - **Ops** — Health check, structured JSON logs, CORS, Dockerfile, docker-compose with Postgres, GitHub Actions CI.
@@ -65,7 +65,7 @@ The engine in `app/services/underwriting/engine.py` produces a transparent score
 Pricing produces an APR between 3% and 36% as a function of risk score and purpose. Outcomes:
 `approved`, `conditionally_approved`, `refer`, `declined`. Every decision returns a list of human-readable reasons.
 
-If `OPENAI_API_KEY` is set, a short underwriter-style note is appended to the narrative. The LLM cannot change the outcome, amount, or APR.
+If `CURSOR_API_KEY` is set, a short underwriter-style note is appended to the narrative. The request goes to `CURSOR_API_BASE_URL` (any OpenAI-compatible chat-completions endpoint; defaults to `https://api.openai.com/v1`). The LLM cannot change the outcome, amount, or APR.
 
 ## Project Layout
 
@@ -99,8 +99,9 @@ All settings live in `app/core/config.py` and can be overridden via environment 
 | `DATABASE_URL` | `sqlite:///./underwriter.db` | Use `postgresql+psycopg2://...` in production |
 | `JWT_SECRET` | dev placeholder | **Override in any non-dev environment** |
 | `JWT_EXPIRES_MINUTES` | `60` | Access token TTL |
-| `OPENAI_API_KEY` | _(unset)_ | Enables LLM-assisted narratives |
-| `OPENAI_MODEL` | `gpt-4o-mini` | Used only when key is present |
+| `CURSOR_API_KEY` | _(unset)_ | Enables LLM-assisted narratives (Cursor or any OpenAI-compatible key) |
+| `CURSOR_API_BASE_URL` | `https://api.openai.com/v1` | OpenAI-compatible base URL used for `/chat/completions` |
+| `CURSOR_MODEL` | `gpt-4o-mini` | Used only when key is present |
 | `CORS_ORIGINS` | `*` | Comma-separated |
 | `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` | dev defaults | Created only if no users exist |
 

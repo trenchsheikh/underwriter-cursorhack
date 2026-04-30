@@ -26,8 +26,9 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expires_minutes: int = 60
 
-    openai_api_key: str | None = None
-    openai_model: str = "gpt-4o-mini"
+    cursor_api_key: str | None = None
+    cursor_api_base_url: str = "https://api.openai.com/v1"
+    cursor_model: str = "gpt-4o-mini"
 
     cors_origins: list[str] = Field(default_factory=lambda: ["*"])
 
