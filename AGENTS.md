@@ -2,7 +2,7 @@
 
 ## Repo overview
 
-`underwriter-cursorhack` is the Mandate demo: an autonomous VC-underwriting
+`underwriter-cursorhack` is the UnderWriter demo: an autonomous VC-underwriting
 agent that fans out six diligence desks, streams findings to a Next.js UI, and
 either queues a wire or holds and proposes a mandate amendment.
 

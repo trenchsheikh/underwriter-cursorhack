@@ -1,4 +1,4 @@
-# Mandate — Backend Specification
+# UnderWriter — Backend Specification
 
 The complete backend brief: orchestration, six desks, data sources, the contract shared with the UI, fixtures, mock ledger, and the amendment PR flow. Read alongside `ARCHITECTURE.md` (the high-level design) and `DATA_SOURCES.md` (the API lookup).
 
@@ -9,7 +9,7 @@ The complete backend brief: orchestration, six desks, data sources, the contract
 ## 1. Folder structure
 
 ```
-mandate/
+backend/
 ├── app/
 │   └── api/
 │       ├── run/route.ts             # POST — starts a run, streams SSE events

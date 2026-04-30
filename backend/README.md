@@ -1,6 +1,6 @@
-# Mandate — Backend
+# UnderWriter — Backend
 
-Autonomous underwriting backend for the Mandate demo. Implements the brief in
+Autonomous underwriting backend for the UnderWriter demo. Implements the brief in
 [`docs/Backend.md`](docs/Backend.md): six diligence desks fanning out in parallel
 against real data sources (with fixture fallbacks), an SSE event stream into the
 UI, a synthesised verdict, an IC memo, and an amendment-PR draft when the GP
@@ -39,7 +39,7 @@ backend/
 │       └── wire-safety.ts
 ├── lib/
 │   ├── contract.ts                  # shared types (THE SEAM)
-│   ├── types.ts                     # internal types (Mandate, ParsedDeal…)
+│   ├── types.ts                     # internal types (Mandate policy, ParsedDeal…)
 │   ├── mandate-loader.ts            # parses MANDATE.md frontmatter
 │   ├── mandate-evaluator.ts         # pure rule evaluation
 │   ├── ledger.ts                    # mock wire ledger

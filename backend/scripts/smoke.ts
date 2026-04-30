@@ -1,5 +1,5 @@
 /**
- * End-to-end smoke test for the Mandate backend.
+ * End-to-end smoke test for the UnderWriter backend.
  *
  *   npm run smoke
  *

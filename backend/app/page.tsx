@@ -10,7 +10,7 @@ export const dynamic = "force-static";
 export default function HomePage() {
   return (
     <main style={{ fontFamily: "ui-monospace, monospace", padding: "2rem", lineHeight: 1.6 }}>
-      <h1>Mandate — Backend</h1>
+      <h1>UnderWriter — Backend</h1>
       <p>Autonomous underwriting backend. The frontend is in <code>../front-end</code>.</p>
       <ul>
         <li><code>POST /api/run</code> — SSE diligence run</li>
